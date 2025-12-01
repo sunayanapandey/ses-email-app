@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Save, Send, Layout, FileText, Eye, X, Upload, CheckCircle, AlertCircle } from 'lucide-react';
 import { api } from '../services/api';
+import RichTextEditor from '../components/RichTextEditor';
 
 const EmailComposer = () => {
     const [subject, setSubject] = useState('');
@@ -215,7 +216,7 @@ const EmailComposer = () => {
                                     }`}
                             >
                                 <FileText size={16} />
-                                HTML Editor
+                                Rich Editor
                             </button>
                             <button
                                 onClick={() => setViewMode('preview')}
@@ -227,18 +228,16 @@ const EmailComposer = () => {
                             </button>
                         </div>
 
-                        <div className="flex-1 relative overflow-auto">
+                        <div className="flex-1 relative overflow-hidden">
                             {viewMode === 'edit' ? (
-                                <textarea
+                                <RichTextEditor
                                     value={content}
-                                    onChange={(e) => setContent(e.target.value)}
-                                    placeholder="Type your email content here... Use {{name}} for personalization. You can use HTML tags for formatting."
-                                    className="w-full h-full p-4 resize-none outline-none border-0 focus:ring-0"
-                                    style={{ minHeight: '400px' }}
+                                    onChange={setContent}
+                                    placeholder="Start typing your email content... Use {{name}} for personalization."
                                 />
                             ) : (
                                 <div
-                                    className="w-full h-full p-8 prose max-w-none"
+                                    className="w-full h-full p-8 prose max-w-none overflow-auto"
                                     dangerouslySetInnerHTML={{ __html: content }}
                                 />
                             )}
@@ -307,12 +306,12 @@ const EmailComposer = () => {
 
                     {/* Helper Info */}
                     <div className="bg-blue-50 p-4 rounded-xl border border-blue-100">
-                        <h4 className="font-semibold text-blue-800 mb-2">💡 Personalization</h4>
+                        <h4 className="font-semibold text-blue-800 mb-2">💡 Tips</h4>
                         <p className="text-xs text-blue-600 mb-2">
                             Use <code className="bg-blue-100 px-1 rounded">{'{{name}}'}</code> anywhere in your subject or content to personalize emails.
                         </p>
                         <p className="text-xs text-blue-600">
-                            You can use HTML tags directly in the editor for formatting (e.g., &lt;h1&gt;, &lt;p&gt;, &lt;strong&gt;, etc.)
+                            Use the rich text editor toolbar to format your emails with fonts, colors, images, links, and CTA buttons.
                         </p>
                     </div>
                 </div>
