@@ -1,0 +1,701 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'SES V3: Tracking Opens, Clicks, and Bounces'
+
+Parameters:
+  SenderEmail:
+    Type: String
+    Description: "Your VERIFIED SES Email Address"
+
+Resources:
+  # ---------------------------------------------------------
+  # 1. DynamoDB Tables (Now with Stats)
+  # ---------------------------------------------------------
+  UsersTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: "SesApp_Users"
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions: [{ AttributeName: "UserId", AttributeType: "S" }]
+      KeySchema: [{ AttributeName: "UserId", KeyType: "HASH" }]
+
+  CampaignsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: "SesApp_Campaigns"
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions: [{ AttributeName: "FileName", AttributeType: "S" }]
+      KeySchema: [{ AttributeName: "FileName", KeyType: "HASH" }]
+
+  # ---------------------------------------------------------
+  # 2. SES Configuration Set (The "Spy")
+  # ---------------------------------------------------------
+  SesConfigSet:
+    Type: AWS::SES::ConfigurationSet
+    Properties:
+      Name: "SesAppTracker"
+
+  # Tell SES: "Send all tracking events to my SNS Topic"
+  SesEventDestination:
+    Type: AWS::SES::ConfigurationSetEventDestination
+    Properties:
+      ConfigurationSetName: !Ref SesConfigSet
+      EventDestination:
+        Name: "SnsTracker"
+        Enabled: true
+        MatchingEventTypes: ["open", "click", "bounce", "delivery"]
+        SnsDestination:
+          TopicARN: !Ref TrackingTopic
+
+  # ---------------------------------------------------------
+  # 3. SNS Topic (The "Reporter")
+  # ---------------------------------------------------------
+  TrackingTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: "SesEventsTopic"
+
+  # ---------------------------------------------------------
+  # 4. Lambda: Tracker (The "Scribe")
+  # ---------------------------------------------------------
+  TrackerFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      Handler: index.handler
+      Role: !GetAtt LambdaRole.Arn
+      Runtime: nodejs20.x
+      Environment: { Variables: { CAMPAIGN_TABLE: !Ref CampaignsTable } }
+      Code:
+        ZipFile: |
+          const { DynamoDBClient } = require("@aws-sdk/client-dynamodb");
+          const { DynamoDBDocumentClient, UpdateCommand } = require("@aws-sdk/lib-dynamodb");
+          const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({}));
+
+          exports.handler = async (event) => {
+            for (const record of event.Records) {
+              const sesMsg = JSON.parse(record.Sns.Message);
+              const type = sesMsg.eventType; // "Open", "Click", "Bounce"
+              
+              // We retrieve the Campaign ID from the tags we attached when sending
+              const tags = sesMsg.mail.tags || {};
+              const campaignId = tags['CampaignId'] ? tags['CampaignId'][0] : null;
+
+              if (!campaignId) {
+                console.log("No CampaignId found in event");
+                continue;
+              }
+
+              // Determine which counter to increment
+              let updateExpr = "";
+              if (type === 'Open') updateExpr = "ADD OpenCount :inc";
+              else if (type === 'Click') updateExpr = "ADD ClickCount :inc";
+              else if (type === 'Bounce') updateExpr = "ADD BounceCount :inc";
+              else if (type === 'Delivery') updateExpr = "ADD SentCount :inc";
+              else continue;
+
+              try {
+                await ddb.send(new UpdateCommand({
+                  TableName: process.env.CAMPAIGN_TABLE,
+                  Key: { FileName: campaignId },
+                  UpdateExpression: updateExpr,
+                  ExpressionAttributeValues: { ":inc": 1 }
+                }));
+                console.log(`Updated ${type} for ${campaignId}`);
+              } catch (e) {
+                console.error("DB Error", e);
+              }
+            }
+          };
+
+  # ---------------------------------------------------------
+  # 5. Connect SNS -> Tracker Lambda
+  # ---------------------------------------------------------
+  TrackerSubscription:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref TrackerFunction
+      Principal: sns.amazonaws.com
+      SourceArn: !Ref TrackingTopic
+
+  SnsSubscription:
+    Type: AWS::SNS::Subscription
+    Properties:
+      Endpoint: !GetAtt TrackerFunction.Arn
+      Protocol: lambda
+      TopicArn: !Ref TrackingTopic
+
+  # ---------------------------------------------------------
+  # 6. Roles & Core Infrastructure (Same as before)
+  # ---------------------------------------------------------
+  UploadBucket:
+    Type: AWS::S3::Bucket
+    DependsOn: S3BucketPermission
+    Properties:
+      BucketName: !Sub "ses-v3-${AWS::AccountId}-${AWS::Region}"
+      CorsConfiguration:
+        CorsRules:
+          - AllowedHeaders: ["*"]
+            AllowedMethods: ["PUT", "POST"]
+            AllowedOrigins: ["*"]
+      NotificationConfiguration:
+        LambdaConfigurations:
+          - Event: 's3:ObjectCreated:*'
+            Function: !GetAtt ProcessCsvFunction.Arn
+
+  EmailQueue:
+    Type: AWS::SQS::Queue
+    Properties: { VisibilityTimeout: 60 }
+
+  LambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement: [{ Effect: Allow, Principal: { Service: lambda.amazonaws.com }, Action: sts:AssumeRole }]
+      Policies:
+        - PolicyName: FullAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: ["dynamodb:*", "sqs:*", "ses:*", "s3:*", "logs:*"]
+                Resource: "*"
+
+  # ---------------------------------------------------------
+  # 7. Worker Lambdas (Updated to use ConfigSet & Tags)
+  # ---------------------------------------------------------
+  GetBalanceFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      Handler: index.handler
+      Role: !GetAtt LambdaRole.Arn
+      Runtime: nodejs20.x
+      Environment: { Variables: { TABLE_NAME: !Ref UsersTable } }
+      Code:
+        ZipFile: |
+          const { DynamoDBClient } = require("@aws-sdk/client-dynamodb");
+          const { DynamoDBDocumentClient, GetCommand, PutCommand } = require("@aws-sdk/lib-dynamodb");
+          const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({}));
+          exports.handler = async () => {
+            const userId = "user_001";
+            const data = await ddb.send(new GetCommand({ TableName: process.env.TABLE_NAME, Key: { UserId: userId } }));
+            if (!data.Item) {
+              await ddb.send(new PutCommand({ TableName: process.env.TABLE_NAME, Item: { UserId: userId, Balance: 100 } }));
+              return { statusCode: 200, body: JSON.stringify({ balance: 100 }) };
+            }
+            return { statusCode: 200, body: JSON.stringify({ balance: data.Item.Balance }) };
+          };
+
+  GetUploadUrlFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      Handler: index.handler
+      Role: !GetAtt LambdaRole.Arn
+      Runtime: nodejs20.x
+      Environment:
+        Variables: { BUCKET_NAME: !Ref UploadBucket, CAMPAIGN_TABLE: !Ref CampaignsTable }
+      Code:
+        ZipFile: |
+          const { S3Client, PutObjectCommand } = require("@aws-sdk/client-s3");
+          const { getSignedUrl } = require("@aws-sdk/s3-request-presigner");
+          const { DynamoDBClient } = require("@aws-sdk/client-dynamodb");
+          const { DynamoDBDocumentClient, PutCommand } = require("@aws-sdk/lib-dynamodb");
+          const s3 = new S3Client({});
+          const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({}));
+          exports.handler = async (event) => {
+            const body = JSON.parse(event.body);
+            // Initialize Campaign Stats to 0
+            await ddb.send(new PutCommand({
+              TableName: process.env.CAMPAIGN_TABLE,
+              Item: { 
+                FileName: body.fileName,
+                Subject: body.subject,
+                Body: body.body,
+                SentCount: 0, OpenCount: 0, ClickCount: 0, BounceCount: 0
+              }
+            }));
+            const command = new PutObjectCommand({ Bucket: process.env.BUCKET_NAME, Key: body.fileName, ContentType: "text/csv" });
+            const url = await getSignedUrl(s3, command, { expiresIn: 300 });
+            return { statusCode: 200, body: JSON.stringify({ uploadURL: url }) };
+          };
+
+  ProcessCsvFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      Handler: index.handler
+      Role: !GetAtt LambdaRole.Arn
+      Runtime: nodejs20.x
+      Timeout: 60
+      Environment:
+        Variables: { QUEUE_URL: !Ref EmailQueue, CAMPAIGN_TABLE: !Ref CampaignsTable }
+      Code:
+        ZipFile: |
+          const { S3Client, GetObjectCommand } = require("@aws-sdk/client-s3");
+          const { SQSClient, SendMessageCommand } = require("@aws-sdk/client-sqs");
+          const { DynamoDBClient } = require("@aws-sdk/client-dynamodb");
+          const { DynamoDBDocumentClient, GetCommand } = require("@aws-sdk/lib-dynamodb");
+          const s3 = new S3Client({});
+          const sqs = new SQSClient({});
+          const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({}));
+          exports.handler = async (event) => {
+            const bucket = event.Records[0].s3.bucket.name;
+            const key = decodeURIComponent(event.Records[0].s3.object.key.replace(/\+/g, ' '));
+            const camp = await ddb.send(new GetCommand({ TableName: process.env.CAMPAIGN_TABLE, Key: { FileName: key } }));
+            const { Subject, Body } = camp.Item || { Subject: "No Subject", Body: "Hello" };
+            const { Body: s3Body } = await s3.send(new GetObjectCommand({ Bucket: bucket, Key: key }));
+            const csvContent = await s3Body.transformToString();
+            const rows = csvContent.split(/\r?\n/);
+            for (let row of rows) {
+              if (!row.trim()) continue;
+              const [email, name] = row.split(',');
+              if(email && email.includes('@')) {
+                 let personalBody = Body.replace(/{{name}}/g, name ? name.trim() : 'Friend');
+                 let personalSubject = Subject.replace(/{{name}}/g, name ? name.trim() : 'Friend');
+                 // Pass the Campaign ID (filename) to the queue so the Sender knows it
+                 await sqs.send(new SendMessageCommand({
+                   QueueUrl: process.env.QUEUE_URL,
+                   MessageBody: JSON.stringify({ email: email.trim(), subject: personalSubject, body: personalBody, campaignId: key })
+                 }));
+              }
+            }
+          };
+
+  SendEmailFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      Handler: index.handler
+      Role: !GetAtt LambdaRole.Arn
+      Runtime: nodejs20.x
+      Environment:
+        Variables: { TABLE_NAME: !Ref UsersTable, SENDER_EMAIL: !Ref SenderEmail, CONFIG_SET: !Ref SesConfigSet }
+      Code:
+        ZipFile: |
+          const { DynamoDBClient } = require("@aws-sdk/client-dynamodb");
+          const { DynamoDBDocumentClient, UpdateCommand } = require("@aws-sdk/lib-dynamodb");
+          const { SESClient, SendEmailCommand } = require("@aws-sdk/client-ses");
+          const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({}));
+          const ses = new SESClient({});
+          exports.handler = async (event) => {
+            const userId = "user_001"; 
+            for (const record of event.Records) {
+              const { email, subject, body, campaignId } = JSON.parse(record.body);
+              try {
+                await ddb.send(new UpdateCommand({
+                  TableName: process.env.TABLE_NAME,
+                  Key: { UserId: userId },
+                  UpdateExpression: "set Balance = Balance - :val",
+                  ConditionExpression: "Balance >= :val",
+                  ExpressionAttributeValues: { ":val": 1 }
+                }));
+                
+                await ses.send(new SendEmailCommand({
+                  Source: process.env.SENDER_EMAIL,
+                  Destination: { ToAddresses: [email] },
+                  Message: { Subject: { Data: subject }, Body: { Html: { Data: body } } }, // Changed to HTML for tracking!
+                  ConfigurationSetName: process.env.CONFIG_SET, // <--- CRITICAL: Enables Tracking
+                  Tags: [{ Name: 'CampaignId', Value: campaignId }] // <--- CRITICAL: Links event to Campaign
+                }));
+              } catch (err) { console.log("Failed:", err.message); }
+            }
+          };
+
+  SqsEventSource: { Type: AWS::Lambda::EventSourceMapping, Properties: { BatchSize: 1, EventSourceArn: !GetAtt EmailQueue.Arn, FunctionName: !Ref SendEmailFunction } }
+  S3BucketPermission: { Type: AWS::Lambda::Permission, Properties: { Action: lambda:InvokeFunction, FunctionName: !Ref ProcessCsvFunction, Principal: s3.amazonaws.com, SourceAccount: !Ref "AWS::AccountId" } }
+
+  # ---------------------------------------------------------
+  # 8. API Gateway (Added /stats endpoint)
+  # ---------------------------------------------------------
+  HttpApi:
+    Type: AWS::ApiGatewayV2::Api
+    Properties: { Name: SesV3_API, ProtocolType: HTTP, CorsConfiguration: { AllowOrigins: ["*"], AllowMethods: ["POST", "GET"], AllowHeaders: ["*"] } }
+  ApiStage:
+    Type: AWS::ApiGatewayV2::Stage
+    Properties: { ApiId: !Ref HttpApi, StageName: prod, AutoDeploy: true }
+
+  # New Lambda to Read Stats
+  GetStatsFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      Handler: index.handler
+      Role: !GetAtt LambdaRole.Arn
+      Runtime: nodejs20.x
+      Environment: { Variables: { CAMPAIGN_TABLE: !Ref CampaignsTable } }
+      Code:
+        ZipFile: |
+          const { DynamoDBClient } = require("@aws-sdk/client-dynamodb");
+          const { DynamoDBDocumentClient, GetCommand } = require("@aws-sdk/lib-dynamodb");
+          const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({}));
+          exports.handler = async (event) => {
+            const fileName = event.queryStringParameters.fileName;
+            const data = await ddb.send(new GetCommand({ TableName: process.env.CAMPAIGN_TABLE, Key: { FileName: fileName } }));
+            return { statusCode: 200, body: JSON.stringify(data.Item || {}) };
+          };
+
+  # Routes
+  Route1: { Type: AWS::ApiGatewayV2::Route, Properties: { ApiId: !Ref HttpApi, RouteKey: "POST /upload", Target: !Join [ "/", [ "integrations", !Ref UploadIntegration ] ] } }
+  Route2: { Type: AWS::ApiGatewayV2::Route, Properties: { ApiId: !Ref HttpApi, RouteKey: "GET /balance", Target: !Join [ "/", [ "integrations", !Ref BalanceIntegration ] ] } }
+  Route3: { Type: AWS::ApiGatewayV2::Route, Properties: { ApiId: !Ref HttpApi, RouteKey: "GET /stats", Target: !Join [ "/", [ "integrations", !Ref StatsIntegration ] ] } }
+
+  # Integrations
+  UploadIntegration: { Type: AWS::ApiGatewayV2::Integration, Properties: { ApiId: !Ref HttpApi, IntegrationType: AWS_PROXY, IntegrationUri: !GetAtt GetUploadUrlFunction.Arn, PayloadFormatVersion: "2.0" } }
+  BalanceIntegration: { Type: AWS::ApiGatewayV2::Integration, Properties: { ApiId: !Ref HttpApi, IntegrationType: AWS_PROXY, IntegrationUri: !GetAtt GetBalanceFunction.Arn, PayloadFormatVersion: "2.0" } }
+  StatsIntegration: { Type: AWS::ApiGatewayV2::Integration, Properties: { ApiId: !Ref HttpApi, IntegrationType: AWS_PROXY, IntegrationUri: !GetAtt GetStatsFunction.Arn, PayloadFormatVersion: "2.0" } }
+
+  # API Permissions
+  ApiPerm1: { Type: AWS::Lambda::Permission, Properties: { Action: lambda:InvokeFunction, FunctionName: !Ref GetUploadUrlFunction, Principal: apigateway.amazonaws.com } }
+  ApiPerm2: { Type: AWS::Lambda::Permission, Properties: { Action: lambda:InvokeFunction, FunctionName: !Ref GetBalanceFunction, Principal: apigateway.amazonaws.com } }
+  ApiPerm3: { Type: AWS::Lambda::Permission, Properties: { Action: lambda:InvokeFunction, FunctionName: !Ref GetStatsFunction, Principal: apigateway.amazonaws.com } }
+
+Outputs:
+  ApiUrl:
+    Value: !Sub "https://${HttpApi}.execute-api.${AWS::Region}.amazonaws.com/prod"AWSTemplateFormatVersion: '2010-09-09'
+Description: 'SES V3: Tracking Opens, Clicks, and Bounces'
+
+Parameters:
+  SenderEmail:
+    Type: String
+    Description: "Your VERIFIED SES Email Address"
+
+Resources:
+  # ---------------------------------------------------------
+  # 1. DynamoDB Tables (Now with Stats)
+  # ---------------------------------------------------------
+  UsersTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: "SesApp_Users"
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions: [{ AttributeName: "UserId", AttributeType: "S" }]
+      KeySchema: [{ AttributeName: "UserId", KeyType: "HASH" }]
+
+  CampaignsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: "SesApp_Campaigns"
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions: [{ AttributeName: "FileName", AttributeType: "S" }]
+      KeySchema: [{ AttributeName: "FileName", KeyType: "HASH" }]
+
+  # ---------------------------------------------------------
+  # 2. SES Configuration Set (The "Spy")
+  # ---------------------------------------------------------
+  SesConfigSet:
+    Type: AWS::SES::ConfigurationSet
+    Properties:
+      Name: "SesAppTracker"
+
+  # Tell SES: "Send all tracking events to my SNS Topic"
+  SesEventDestination:
+    Type: AWS::SES::ConfigurationSetEventDestination
+    Properties:
+      ConfigurationSetName: !Ref SesConfigSet
+      EventDestination:
+        Name: "SnsTracker"
+        Enabled: true
+        MatchingEventTypes: ["open", "click", "bounce", "delivery"]
+        SnsDestination:
+          TopicARN: !Ref TrackingTopic
+
+  # ---------------------------------------------------------
+  # 3. SNS Topic (The "Reporter")
+  # ---------------------------------------------------------
+  TrackingTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: "SesEventsTopic"
+
+  # ---------------------------------------------------------
+  # 4. Lambda: Tracker (The "Scribe")
+  # ---------------------------------------------------------
+  TrackerFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      Handler: index.handler
+      Role: !GetAtt LambdaRole.Arn
+      Runtime: nodejs20.x
+      Environment: { Variables: { CAMPAIGN_TABLE: !Ref CampaignsTable } }
+      Code:
+        ZipFile: |
+          const { DynamoDBClient } = require("@aws-sdk/client-dynamodb");
+          const { DynamoDBDocumentClient, UpdateCommand } = require("@aws-sdk/lib-dynamodb");
+          const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({}));
+
+          exports.handler = async (event) => {
+            for (const record of event.Records) {
+              const sesMsg = JSON.parse(record.Sns.Message);
+              const type = sesMsg.eventType; // "Open", "Click", "Bounce"
+              
+              // We retrieve the Campaign ID from the tags we attached when sending
+              const tags = sesMsg.mail.tags || {};
+              const campaignId = tags['CampaignId'] ? tags['CampaignId'][0] : null;
+
+              if (!campaignId) {
+                console.log("No CampaignId found in event");
+                continue;
+              }
+
+              // Determine which counter to increment
+              let updateExpr = "";
+              if (type === 'Open') updateExpr = "ADD OpenCount :inc";
+              else if (type === 'Click') updateExpr = "ADD ClickCount :inc";
+              else if (type === 'Bounce') updateExpr = "ADD BounceCount :inc";
+              else if (type === 'Delivery') updateExpr = "ADD SentCount :inc";
+              else continue;
+
+              try {
+                await ddb.send(new UpdateCommand({
+                  TableName: process.env.CAMPAIGN_TABLE,
+                  Key: { FileName: campaignId },
+                  UpdateExpression: updateExpr,
+                  ExpressionAttributeValues: { ":inc": 1 }
+                }));
+                console.log(`Updated ${type} for ${campaignId}`);
+              } catch (e) {
+                console.error("DB Error", e);
+              }
+            }
+          };
+
+  # ---------------------------------------------------------
+  # 5. Connect SNS -> Tracker Lambda
+  # ---------------------------------------------------------
+  TrackerSubscription:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref TrackerFunction
+      Principal: sns.amazonaws.com
+      SourceArn: !Ref TrackingTopic
+
+  SnsSubscription:
+    Type: AWS::SNS::Subscription
+    Properties:
+      Endpoint: !GetAtt TrackerFunction.Arn
+      Protocol: lambda
+      TopicArn: !Ref TrackingTopic
+
+  # ---------------------------------------------------------
+  # 6. Roles & Core Infrastructure (Same as before)
+  # ---------------------------------------------------------
+  UploadBucket:
+    Type: AWS::S3::Bucket
+    DependsOn: S3BucketPermission
+    Properties:
+      BucketName: !Sub "ses-v3-${AWS::AccountId}-${AWS::Region}"
+      CorsConfiguration:
+        CorsRules:
+          - AllowedHeaders: ["*"]
+            AllowedMethods: ["PUT", "POST"]
+            AllowedOrigins: ["*"]
+      NotificationConfiguration:
+        LambdaConfigurations:
+          - Event: 's3:ObjectCreated:*'
+            Function: !GetAtt ProcessCsvFunction.Arn
+
+  EmailQueue:
+    Type: AWS::SQS::Queue
+    Properties: { VisibilityTimeout: 60 }
+
+  LambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement: [{ Effect: Allow, Principal: { Service: lambda.amazonaws.com }, Action: sts:AssumeRole }]
+      Policies:
+        - PolicyName: FullAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: ["dynamodb:*", "sqs:*", "ses:*", "s3:*", "logs:*"]
+                Resource: "*"
+
+  # ---------------------------------------------------------
+  # 7. Worker Lambdas (Updated to use ConfigSet & Tags)
+  # ---------------------------------------------------------
+  GetBalanceFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      Handler: index.handler
+      Role: !GetAtt LambdaRole.Arn
+      Runtime: nodejs20.x
+      Environment: { Variables: { TABLE_NAME: !Ref UsersTable } }
+      Code:
+        ZipFile: |
+          const { DynamoDBClient } = require("@aws-sdk/client-dynamodb");
+          const { DynamoDBDocumentClient, GetCommand, PutCommand } = require("@aws-sdk/lib-dynamodb");
+          const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({}));
+          exports.handler = async () => {
+            const userId = "user_001";
+            const data = await ddb.send(new GetCommand({ TableName: process.env.TABLE_NAME, Key: { UserId: userId } }));
+            if (!data.Item) {
+              await ddb.send(new PutCommand({ TableName: process.env.TABLE_NAME, Item: { UserId: userId, Balance: 100 } }));
+              return { statusCode: 200, body: JSON.stringify({ balance: 100 }) };
+            }
+            return { statusCode: 200, body: JSON.stringify({ balance: data.Item.Balance }) };
+          };
+
+  GetUploadUrlFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      Handler: index.handler
+      Role: !GetAtt LambdaRole.Arn
+      Runtime: nodejs20.x
+      Environment:
+        Variables: { BUCKET_NAME: !Ref UploadBucket, CAMPAIGN_TABLE: !Ref CampaignsTable }
+      Code:
+        ZipFile: |
+          const { S3Client, PutObjectCommand } = require("@aws-sdk/client-s3");
+          const { getSignedUrl } = require("@aws-sdk/s3-request-presigner");
+          const { DynamoDBClient } = require("@aws-sdk/client-dynamodb");
+          const { DynamoDBDocumentClient, PutCommand } = require("@aws-sdk/lib-dynamodb");
+          const s3 = new S3Client({});
+          const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({}));
+          exports.handler = async (event) => {
+            const body = JSON.parse(event.body);
+            // Initialize Campaign Stats to 0
+            await ddb.send(new PutCommand({
+              TableName: process.env.CAMPAIGN_TABLE,
+              Item: { 
+                FileName: body.fileName,
+                Subject: body.subject,
+                Body: body.body,
+                SentCount: 0, OpenCount: 0, ClickCount: 0, BounceCount: 0
+              }
+            }));
+            const command = new PutObjectCommand({ Bucket: process.env.BUCKET_NAME, Key: body.fileName, ContentType: "text/csv" });
+            const url = await getSignedUrl(s3, command, { expiresIn: 300 });
+            return { statusCode: 200, body: JSON.stringify({ uploadURL: url }) };
+          };
+
+  ProcessCsvFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      Handler: index.handler
+      Role: !GetAtt LambdaRole.Arn
+      Runtime: nodejs20.x
+      Timeout: 60
+      Environment:
+        Variables: { QUEUE_URL: !Ref EmailQueue, CAMPAIGN_TABLE: !Ref CampaignsTable }
+      Code:
+        ZipFile: |
+          const { S3Client, GetObjectCommand } = require("@aws-sdk/client-s3");
+          const { SQSClient, SendMessageCommand } = require("@aws-sdk/client-sqs");
+          const { DynamoDBClient } = require("@aws-sdk/client-dynamodb");
+          const { DynamoDBDocumentClient, GetCommand } = require("@aws-sdk/lib-dynamodb");
+          const s3 = new S3Client({});
+          const sqs = new SQSClient({});
+          const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({}));
+          exports.handler = async (event) => {
+            const bucket = event.Records[0].s3.bucket.name;
+            const key = decodeURIComponent(event.Records[0].s3.object.key.replace(/\+/g, ' '));
+            const camp = await ddb.send(new GetCommand({ TableName: process.env.CAMPAIGN_TABLE, Key: { FileName: key } }));
+            const { Subject, Body } = camp.Item || { Subject: "No Subject", Body: "Hello" };
+            const { Body: s3Body } = await s3.send(new GetObjectCommand({ Bucket: bucket, Key: key }));
+            const csvContent = await s3Body.transformToString();
+            const rows = csvContent.split(/\r?\n/);
+            for (let row of rows) {
+              if (!row.trim()) continue;
+              const [email, name] = row.split(',');
+              if(email && email.includes('@')) {
+                 let personalBody = Body.replace(/{{name}}/g, name ? name.trim() : 'Friend');
+                 let personalSubject = Subject.replace(/{{name}}/g, name ? name.trim() : 'Friend');
+                 // Pass the Campaign ID (filename) to the queue so the Sender knows it
+                 await sqs.send(new SendMessageCommand({
+                   QueueUrl: process.env.QUEUE_URL,
+                   MessageBody: JSON.stringify({ email: email.trim(), subject: personalSubject, body: personalBody, campaignId: key })
+                 }));
+              }
+            }
+          };
+
+  SendEmailFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      Handler: index.handler
+      Role: !GetAtt LambdaRole.Arn
+      Runtime: nodejs20.x
+      Environment:
+        Variables: { TABLE_NAME: !Ref UsersTable, SENDER_EMAIL: !Ref SenderEmail, CONFIG_SET: !Ref SesConfigSet }
+      Code:
+        ZipFile: |
+          const { DynamoDBClient } = require("@aws-sdk/client-dynamodb");
+          const { DynamoDBDocumentClient, UpdateCommand } = require("@aws-sdk/lib-dynamodb");
+          const { SESClient, SendEmailCommand } = require("@aws-sdk/client-ses");
+          const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({}));
+          const ses = new SESClient({});
+          exports.handler = async (event) => {
+            const userId = "user_001"; 
+            for (const record of event.Records) {
+              const { email, subject, body, campaignId } = JSON.parse(record.body);
+              try {
+                await ddb.send(new UpdateCommand({
+                  TableName: process.env.TABLE_NAME,
+                  Key: { UserId: userId },
+                  UpdateExpression: "set Balance = Balance - :val",
+                  ConditionExpression: "Balance >= :val",
+                  ExpressionAttributeValues: { ":val": 1 }
+                }));
+                
+                await ses.send(new SendEmailCommand({
+                  Source: process.env.SENDER_EMAIL,
+                  Destination: { ToAddresses: [email] },
+                  Message: { Subject: { Data: subject }, Body: { Html: { Data: body } } }, // Changed to HTML for tracking!
+                  ConfigurationSetName: process.env.CONFIG_SET, // <--- CRITICAL: Enables Tracking
+                  Tags: [{ Name: 'CampaignId', Value: campaignId }] // <--- CRITICAL: Links event to Campaign
+                }));
+              } catch (err) { console.log("Failed:", err.message); }
+            }
+          };
+
+  SqsEventSource: { Type: AWS::Lambda::EventSourceMapping, Properties: { BatchSize: 1, EventSourceArn: !GetAtt EmailQueue.Arn, FunctionName: !Ref SendEmailFunction } }
+  S3BucketPermission: { Type: AWS::Lambda::Permission, Properties: { Action: lambda:InvokeFunction, FunctionName: !Ref ProcessCsvFunction, Principal: s3.amazonaws.com, SourceAccount: !Ref "AWS::AccountId" } }
+
+  # ---------------------------------------------------------
+  # 8. API Gateway (Added /stats endpoint)
+  # ---------------------------------------------------------
+  HttpApi:
+    Type: AWS::ApiGatewayV2::Api
+    Properties: { Name: SesV3_API, ProtocolType: HTTP, CorsConfiguration: { AllowOrigins: ["*"], AllowMethods: ["POST", "GET"], AllowHeaders: ["*"] } }
+  ApiStage:
+    Type: AWS::ApiGatewayV2::Stage
+    Properties: { ApiId: !Ref HttpApi, StageName: prod, AutoDeploy: true }
+
+  # New Lambda to Read Stats
+  GetStatsFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      Handler: index.handler
+      Role: !GetAtt LambdaRole.Arn
+      Runtime: nodejs20.x
+      Environment: { Variables: { CAMPAIGN_TABLE: !Ref CampaignsTable } }
+      Code:
+        ZipFile: |
+          const { DynamoDBClient } = require("@aws-sdk/client-dynamodb");
+          const { DynamoDBDocumentClient, GetCommand } = require("@aws-sdk/lib-dynamodb");
+          const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({}));
+          exports.handler = async (event) => {
+            const fileName = event.queryStringParameters.fileName;
+            const data = await ddb.send(new GetCommand({ TableName: process.env.CAMPAIGN_TABLE, Key: { FileName: fileName } }));
+            return { statusCode: 200, body: JSON.stringify(data.Item || {}) };
+          };
+
+  # Routes
+  Route1: { Type: AWS::ApiGatewayV2::Route, Properties: { ApiId: !Ref HttpApi, RouteKey: "POST /upload", Target: !Join [ "/", [ "integrations", !Ref UploadIntegration ] ] } }
+  Route2: { Type: AWS::ApiGatewayV2::Route, Properties: { ApiId: !Ref HttpApi, RouteKey: "GET /balance", Target: !Join [ "/", [ "integrations", !Ref BalanceIntegration ] ] } }
+  Route3: { Type: AWS::ApiGatewayV2::Route, Properties: { ApiId: !Ref HttpApi, RouteKey: "GET /stats", Target: !Join [ "/", [ "integrations", !Ref StatsIntegration ] ] } }
+
+  # Integrations
+  UploadIntegration: { Type: AWS::ApiGatewayV2::Integration, Properties: { ApiId: !Ref HttpApi, IntegrationType: AWS_PROXY, IntegrationUri: !GetAtt GetUploadUrlFunction.Arn, PayloadFormatVersion: "2.0" } }
+  BalanceIntegration: { Type: AWS::ApiGatewayV2::Integration, Properties: { ApiId: !Ref HttpApi, IntegrationType: AWS_PROXY, IntegrationUri: !GetAtt GetBalanceFunction.Arn, PayloadFormatVersion: "2.0" } }
+  StatsIntegration: { Type: AWS::ApiGatewayV2::Integration, Properties: { ApiId: !Ref HttpApi, IntegrationType: AWS_PROXY, IntegrationUri: !GetAtt GetStatsFunction.Arn, PayloadFormatVersion: "2.0" } }
+
+  # API Permissions
+  ApiPerm1: { Type: AWS::Lambda::Permission, Properties: { Action: lambda:InvokeFunction, FunctionName: !Ref GetUploadUrlFunction, Principal: apigateway.amazonaws.com } }
+  ApiPerm2: { Type: AWS::Lambda::Permission, Properties: { Action: lambda:InvokeFunction, FunctionName: !Ref GetBalanceFunction, Principal: apigateway.amazonaws.com } }
+  ApiPerm3: { Type: AWS::Lambda::Permission, Properties: { Action: lambda:InvokeFunction, FunctionName: !Ref GetStatsFunction, Principal: apigateway.amazonaws.com } }
+
+Outputs:
+  ApiUrl:
+    Value: !Sub "https://${HttpApi}.execute-api.${AWS::Region}.amazonaws.com/prod"
