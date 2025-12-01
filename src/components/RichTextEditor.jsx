@@ -9,6 +9,10 @@ const RichTextEditor = ({ value, onChange, placeholder = 'Start typing your emai
     const [showLinkDialog, setShowLinkDialog] = useState(false);
     const [showImageDialog, setShowImageDialog] = useState(false);
     const [showButtonDialog, setShowButtonDialog] = useState(false);
+    const [textColor, setTextColor] = useState('#000000');
+    const [bgColor, setBgColor] = useState('#ffff00');
+    const textColorInputRef = useRef(null);
+    const bgColorInputRef = useRef(null);
 
     useEffect(() => {
         if (editorRef.current && value !== editorRef.current.innerHTML) {
@@ -28,9 +32,19 @@ const RichTextEditor = ({ value, onChange, placeholder = 'Start typing your emai
     };
 
     const insertLink = () => {
-        const url = prompt('Enter URL:');
+        const selection = window.getSelection();
+        const selectedText = selection.toString();
+
+        if (!selectedText) {
+            alert('Please select some text first to create a link');
+            return;
+        }
+
+        const url = prompt('Enter URL:', 'https://');
         if (url) {
             execCommand('createLink', url);
+            // Trigger onChange to update the content
+            handleInput();
         }
     };
 
@@ -56,18 +70,14 @@ const RichTextEditor = ({ value, onChange, placeholder = 'Start typing your emai
         execCommand('fontSize', size);
     };
 
-    const setTextColor = () => {
-        const color = prompt('Enter color (e.g., #FF0000 or red):');
-        if (color) {
-            execCommand('foreColor', color);
-        }
+    const handleTextColorChange = (color) => {
+        setTextColor(color);
+        execCommand('foreColor', color);
     };
 
-    const setBackgroundColor = () => {
-        const color = prompt('Enter background color (e.g., #FFFF00 or yellow):');
-        if (color) {
-            execCommand('backColor', color);
-        }
+    const handleBgColorChange = (color) => {
+        setBgColor(color);
+        execCommand('backColor', color);
     };
 
     return (
@@ -119,22 +129,48 @@ const RichTextEditor = ({ value, onChange, placeholder = 'Start typing your emai
 
                 {/* Colors */}
                 <div className="flex gap-1 border-r border-gray-300 pr-2">
-                    <button
-                        onClick={setTextColor}
-                        className="p-2 hover:bg-gray-200 rounded"
-                        title="Text Color"
-                        type="button"
-                    >
-                        <Palette size={18} />
-                    </button>
-                    <button
-                        onClick={setBackgroundColor}
-                        className="p-2 hover:bg-gray-200 rounded"
-                        title="Background Color"
-                        type="button"
-                    >
-                        <Type size={18} />
-                    </button>
+                    <div className="relative">
+                        <button
+                            onClick={() => textColorInputRef.current?.click()}
+                            className="p-2 hover:bg-gray-200 rounded flex items-center gap-1"
+                            title="Text Color"
+                            type="button"
+                        >
+                            <Palette size={18} />
+                            <div
+                                className="w-4 h-4 rounded border border-gray-300"
+                                style={{ backgroundColor: textColor }}
+                            ></div>
+                        </button>
+                        <input
+                            ref={textColorInputRef}
+                            type="color"
+                            value={textColor}
+                            onChange={(e) => handleTextColorChange(e.target.value)}
+                            className="absolute opacity-0 pointer-events-none"
+                        />
+                    </div>
+                    <div className="relative">
+                        <button
+                            onClick={() => bgColorInputRef.current?.click()}
+                            className="p-2 hover:bg-gray-200 rounded flex items-center gap-1"
+                            title="Background Color"
+                            type="button"
+                        >
+                            <Type size={18} />
+                            <div
+                                className="w-4 h-4 rounded border border-gray-300"
+                                style={{ backgroundColor: bgColor }}
+                            ></div>
+                        </button>
+                        <input
+                            ref={bgColorInputRef}
+                            type="color"
+                            value={bgColor}
+                            onChange={(e) => handleBgColorChange(e.target.value)}
+                            className="absolute opacity-0 pointer-events-none"
+                        />
+                    </div>
                 </div>
 
                 {/* Alignment */}
@@ -214,7 +250,7 @@ const RichTextEditor = ({ value, onChange, placeholder = 'Start typing your emai
                 </div>
 
                 {/* CTA Button */}
-                <div className="flex gap-1">
+                <div className="flex gap-1 border-r border-gray-300 pr-2">
                     <button
                         onClick={insertButton}
                         className="px-3 py-1 bg-indigo-600 text-white rounded hover:bg-indigo-700 text-sm"
@@ -223,6 +259,25 @@ const RichTextEditor = ({ value, onChange, placeholder = 'Start typing your emai
                     >
                         🔘 Button
                     </button>
+                </div>
+
+                {/* Personalization */}
+                <div className="flex gap-1">
+                    <select
+                        onChange={(e) => {
+                            if (e.target.value) {
+                                execCommand('insertText', e.target.value);
+                                e.target.value = ''; // Reset selection
+                            }
+                        }}
+                        className="px-2 py-1 border border-gray-300 rounded text-sm bg-white text-gray-700 hover:border-indigo-500 focus:outline-none focus:border-indigo-500"
+                        defaultValue=""
+                    >
+                        <option value="" disabled>Personalize</option>
+                        <option value="{{name}}">Name</option>
+                        <option value="{{email}}">Email</option>
+                        <option value="{{company}}">Company</option>
+                    </select>
                 </div>
             </div>
 
@@ -241,6 +296,30 @@ const RichTextEditor = ({ value, onChange, placeholder = 'Start typing your emai
                     content: attr(data-placeholder);
                     color: #9ca3af;
                     pointer-events: none;
+                }
+                
+                /* List styling */
+                [contentEditable] ul {
+                    list-style-type: disc;
+                    padding-left: 40px;
+                    margin: 8px 0;
+                }
+                
+                [contentEditable] ol {
+                    list-style-type: decimal;
+                    padding-left: 40px;
+                    margin: 8px 0;
+                }
+                
+                [contentEditable] li {
+                    margin: 4px 0;
+                }
+                
+                /* Link styling in editor */
+                [contentEditable] a {
+                    color: #4f46e5;
+                    text-decoration: underline;
+                    cursor: pointer;
                 }
             `}</style>
         </div>

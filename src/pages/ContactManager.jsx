@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Papa from 'papaparse';
 import { Upload, Users, FileSpreadsheet, Trash2, CheckCircle } from 'lucide-react';
 
@@ -6,6 +6,14 @@ const ContactManager = () => {
     const [contacts, setContacts] = useState([]);
     const [uploading, setUploading] = useState(false);
     const [dragActive, setDragActive] = useState(false);
+    const [searchTerm, setSearchTerm] = useState('');
+    const [savedLists, setSavedLists] = useState([]);
+    const [selectedListId, setSelectedListId] = useState(null);
+
+    useEffect(() => {
+        const lists = JSON.parse(localStorage.getItem('savedContactLists') || '[]');
+        setSavedLists(lists);
+    }, []);
 
     const handleDrag = (e) => {
         e.preventDefault();
@@ -39,9 +47,9 @@ const ContactManager = () => {
             header: true,
             skipEmptyLines: true,
             complete: (results) => {
-                // Preview contacts locally
-                setContacts((prev) => [...prev, ...results.data]);
+                setContacts(results.data);
                 setUploading(false);
+                setSelectedListId(null); // Clear selected list when uploading new file
             },
             error: (error) => {
                 console.error('Error parsing CSV:', error);
@@ -51,18 +59,88 @@ const ContactManager = () => {
         });
     };
 
-    const clearContacts = () => {
-        if (confirm('Are you sure you want to clear all contacts?')) {
-            setContacts([]);
+    const saveCurrentList = () => {
+        if (contacts.length === 0) return;
+        const name = prompt('Enter a name for this contact list:');
+        if (name) {
+            const csv = Papa.unparse(contacts);
+            const newList = {
+                id: Date.now(),
+                name,
+                content: csv,
+                fileName: `${name}.csv`
+            };
+            const updatedLists = [...savedLists, newList];
+            localStorage.setItem('savedContactLists', JSON.stringify(updatedLists));
+            setSavedLists(updatedLists);
+            setSelectedListId(newList.id);
+            alert('List saved successfully!');
         }
     };
+
+    const loadList = (list) => {
+        setSelectedListId(list.id);
+        Papa.parse(list.content, {
+            header: true,
+            skipEmptyLines: true,
+            complete: (results) => {
+                setContacts(results.data);
+            }
+        });
+    };
+
+    const deleteList = (e, id) => {
+        e.stopPropagation();
+        if (confirm('Are you sure you want to delete this saved list?')) {
+            const updatedLists = savedLists.filter(l => l.id !== id);
+            localStorage.setItem('savedContactLists', JSON.stringify(updatedLists));
+            setSavedLists(updatedLists);
+            if (selectedListId === id) {
+                setSelectedListId(null);
+                setContacts([]);
+            }
+        }
+    };
+
+    const clearContacts = () => {
+        if (confirm('Are you sure you want to clear the current view?')) {
+            setContacts([]);
+            setSelectedListId(null);
+        }
+    };
+
+    const deleteContact = (index) => {
+        setContacts(contacts.filter((_, i) => i !== index));
+    };
+
+    const exportCSV = () => {
+        if (contacts.length === 0) return;
+
+        const csv = Papa.unparse(contacts);
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        const url = URL.createObjectURL(blob);
+        link.setAttribute('href', url);
+        link.setAttribute('download', 'contacts_export.csv');
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
+
+    const filteredContacts = contacts.filter(contact => {
+        if (!searchTerm) return true;
+        return Object.values(contact).some(val =>
+            String(val).toLowerCase().includes(searchTerm.toLowerCase())
+        );
+    });
 
     return (
         <div className="p-8 max-w-6xl mx-auto h-full flex flex-col">
             <div className="mb-8 flex justify-between items-end">
                 <div>
                     <h1 className="text-3xl font-bold text-gray-900">Contact Management</h1>
-                    <p className="text-gray-500 mt-2">Preview and validate your email lists.</p>
+                    <p className="text-gray-500 mt-2">Manage your saved contact lists and preview CSVs.</p>
                 </div>
                 <div className="flex gap-4">
                     <div className="bg-white px-4 py-2 rounded-lg border border-gray-200 flex items-center gap-2 shadow-sm">
@@ -71,33 +149,82 @@ const ContactManager = () => {
                         <span className="text-gray-500">Total Contacts</span>
                     </div>
                     {contacts.length > 0 && (
-                        <button
-                            onClick={clearContacts}
-                            className="px-4 py-2 text-red-600 hover:bg-red-50 rounded-lg border border-red-200 transition-colors flex items-center gap-2"
-                        >
-                            <Trash2 size={18} />
-                            Clear List
-                        </button>
+                        <>
+                            <button
+                                onClick={saveCurrentList}
+                                className="px-4 py-2 text-indigo-600 hover:bg-indigo-50 rounded-lg border border-indigo-200 transition-colors flex items-center gap-2"
+                            >
+                                <Upload size={18} className="rotate-180" />
+                                Save as List
+                            </button>
+                            <button
+                                onClick={exportCSV}
+                                className="px-4 py-2 text-indigo-600 hover:bg-indigo-50 rounded-lg border border-indigo-200 transition-colors flex items-center gap-2"
+                            >
+                                <Upload size={18} className="rotate-180" />
+                                Export CSV
+                            </button>
+                            <button
+                                onClick={clearContacts}
+                                className="px-4 py-2 text-red-600 hover:bg-red-50 rounded-lg border border-red-200 transition-colors flex items-center gap-2"
+                            >
+                                <Trash2 size={18} />
+                                Clear View
+                            </button>
+                        </>
                     )}
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 flex-1 min-h-0">
-                {/* Upload Area */}
-                <div className="lg:col-span-1">
+            <div className="grid grid-cols-1 lg:grid-cols-4 gap-8 flex-1 min-h-0">
+                {/* Saved Lists Sidebar */}
+                <div className="lg:col-span-1 flex flex-col gap-4">
+                    <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex-1 overflow-hidden flex flex-col">
+                        <h3 className="font-bold text-gray-900 mb-4 flex items-center gap-2">
+                            <FileSpreadsheet size={20} className="text-indigo-600" />
+                            Saved Lists
+                        </h3>
+                        <div className="overflow-y-auto flex-1 space-y-2">
+                            {savedLists.length === 0 ? (
+                                <p className="text-sm text-gray-500 italic">No saved lists yet.</p>
+                            ) : (
+                                savedLists.map(list => (
+                                    <div
+                                        key={list.id}
+                                        onClick={() => loadList(list)}
+                                        className={`p-3 rounded-lg border cursor-pointer transition-all group flex justify-between items-center ${selectedListId === list.id
+                                            ? 'border-indigo-500 bg-indigo-50'
+                                            : 'border-gray-200 hover:border-indigo-300 hover:bg-gray-50'
+                                            }`}
+                                    >
+                                        <div className="overflow-hidden">
+                                            <p className="font-medium text-gray-900 truncate">{list.name}</p>
+                                            <p className="text-xs text-gray-500 truncate">{list.fileName}</p>
+                                        </div>
+                                        <button
+                                            onClick={(e) => deleteList(e, list.id)}
+                                            className="text-gray-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                                            title="Delete List"
+                                        >
+                                            <Trash2 size={16} />
+                                        </button>
+                                    </div>
+                                ))
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Upload Area (Small) */}
                     <div
-                        className={`h-64 border-2 border-dashed rounded-xl flex flex-col items-center justify-center p-6 text-center transition-all ${dragActive ? 'border-indigo-500 bg-indigo-50' : 'border-gray-300 hover:border-indigo-400 hover:bg-gray-50'
+                        className={`border-2 border-dashed rounded-xl flex flex-col items-center justify-center p-4 text-center transition-all ${dragActive ? 'border-indigo-500 bg-indigo-50' : 'border-gray-300 hover:border-indigo-400 hover:bg-gray-50'
                             }`}
                         onDragEnter={handleDrag}
                         onDragLeave={handleDrag}
                         onDragOver={handleDrag}
                         onDrop={handleDrop}
                     >
-                        <div className="bg-indigo-100 p-4 rounded-full mb-4 text-indigo-600">
-                            <Upload size={32} />
-                        </div>
-                        <h3 className="text-lg font-semibold text-gray-900 mb-1">Upload CSV</h3>
-                        <p className="text-sm text-gray-500 mb-4">Drag & drop or click to browse</p>
+                        <Upload size={24} className="text-indigo-400 mb-2" />
+                        <p className="text-sm font-medium text-gray-900">Upload New CSV</p>
                         <input
                             type="file"
                             accept=".csv"
@@ -107,36 +234,32 @@ const ContactManager = () => {
                         />
                         <label
                             htmlFor="csv-upload"
-                            className="px-6 py-2 bg-indigo-600 text-white rounded-lg cursor-pointer hover:bg-indigo-700 transition-colors font-medium"
+                            className="mt-2 text-xs text-indigo-600 hover:text-indigo-700 cursor-pointer font-medium"
                         >
-                            {uploading ? 'Processing...' : 'Select File'}
+                            Browse Files
                         </label>
-                        <p className="text-xs text-gray-400 mt-4">Supported format: .csv with header row</p>
-                    </div>
-
-                    <div className="mt-6 bg-blue-50 p-4 rounded-xl border border-blue-100">
-                        <h4 className="font-semibold text-blue-800 mb-2 flex items-center gap-2">
-                            <FileSpreadsheet size={18} />
-                            CSV Format Guide
-                        </h4>
-                        <p className="text-sm text-blue-600 mb-2">Your CSV should have headers like:</p>
-                        <code className="block bg-white p-2 rounded border border-blue-200 text-xs font-mono text-gray-600">
-                            email,name
-                        </code>
-                        <p className="text-xs text-blue-600 mt-3">
-                            💡 Note: Actual upload happens when you send a campaign in the Email Composer.
-                        </p>
                     </div>
                 </div>
 
                 {/* Contact List */}
-                <div className="lg:col-span-2 bg-white rounded-xl shadow-sm border border-gray-100 flex flex-col overflow-hidden">
-                    <div className="p-4 border-b border-gray-100 bg-gray-50 flex justify-between items-center">
-                        <h2 className="font-semibold text-gray-700">Preview Contacts</h2>
+                <div className="lg:col-span-3 bg-white rounded-xl shadow-sm border border-gray-100 flex flex-col overflow-hidden">
+                    <div className="p-4 border-b border-gray-100 bg-gray-50 flex justify-between items-center gap-4">
+                        <h2 className="font-semibold text-gray-700 whitespace-nowrap">
+                            {selectedListId ? savedLists.find(l => l.id === selectedListId)?.name : 'Preview Contacts'}
+                        </h2>
+                        {contacts.length > 0 && (
+                            <input
+                                type="text"
+                                placeholder="Search contacts..."
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                className="w-full max-w-xs px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:border-indigo-500"
+                            />
+                        )}
                     </div>
 
                     <div className="flex-1 overflow-auto">
-                        {contacts.length > 0 ? (
+                        {filteredContacts.length > 0 ? (
                             <table className="w-full text-left">
                                 <thead className="bg-gray-50 sticky top-0">
                                     <tr>
@@ -145,16 +268,28 @@ const ContactManager = () => {
                                                 {header}
                                             </th>
                                         ))}
+                                        <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider w-10">
+                                            Actions
+                                        </th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-100">
-                                    {contacts.map((contact, idx) => (
-                                        <tr key={idx} className="hover:bg-gray-50">
+                                    {filteredContacts.map((contact, idx) => (
+                                        <tr key={idx} className="hover:bg-gray-50 group">
                                             {Object.values(contact).map((value, i) => (
                                                 <td key={i} className="px-6 py-3 text-sm text-gray-700 whitespace-nowrap">
                                                     {value}
                                                 </td>
                                             ))}
+                                            <td className="px-6 py-3 text-sm text-gray-700 whitespace-nowrap text-right">
+                                                <button
+                                                    onClick={() => deleteContact(idx)}
+                                                    className="text-gray-400 hover:text-red-600 transition-colors opacity-0 group-hover:opacity-100"
+                                                    title="Delete Contact"
+                                                >
+                                                    <Trash2 size={16} />
+                                                </button>
+                                            </td>
                                         </tr>
                                     ))}
                                 </tbody>
@@ -162,7 +297,7 @@ const ContactManager = () => {
                         ) : (
                             <div className="h-full flex flex-col items-center justify-center text-gray-400 p-8">
                                 <Users size={48} className="mb-4 opacity-20" />
-                                <p>No contacts uploaded yet.</p>
+                                <p>{contacts.length > 0 ? 'No contacts match your search.' : 'Select a list or upload a CSV to view contacts.'}</p>
                             </div>
                         )}
                     </div>
