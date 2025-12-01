@@ -1,17 +1,19 @@
-import React, { useState } from 'react';
-import { Save, Send, Layout, FileText, Eye, X, Upload, CheckCircle, AlertCircle } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Save, Send, Layout, FileText, Eye, X, Upload, CheckCircle, AlertCircle, Edit2, Trash2 } from 'lucide-react';
 import { api } from '../services/api';
 import RichTextEditor from '../components/RichTextEditor';
 
 const EmailComposer = () => {
     const [subject, setSubject] = useState('');
     const [content, setContent] = useState('');
-    const [viewMode, setViewMode] = useState('edit'); // 'edit' or 'preview'
+    const [editorMode, setEditorMode] = useState('rich'); // 'rich' or 'html'
+    const [viewMode, setViewMode] = useState('edit'); // 'edit' or 'preview' (only for HTML mode)
     const [showSaveModal, setShowSaveModal] = useState(false);
     const [newTemplateName, setNewTemplateName] = useState('');
+    const [editingTemplateId, setEditingTemplateId] = useState(null);
     const [templates, setTemplates] = useState([
-        { id: 1, name: 'Welcome Email', content: '<h1>Welcome {{name}}!</h1><p>Thanks for joining us.</p>' },
-        { id: 2, name: 'Newsletter', content: '<h1>Weekly Update</h1><p>Here is the latest news.</p>' },
+        { id: 1, name: 'Welcome Email', content: '<h1>Welcome {{name}}!</h1><p>Thanks for joining us.</p>', isSystem: true },
+        { id: 2, name: 'Newsletter', content: '<h1>Weekly Update</h1><p>Here is the latest news.</p>', isSystem: true },
     ]);
 
     // Campaign state
@@ -20,9 +22,44 @@ const EmailComposer = () => {
     const [sending, setSending] = useState(false);
     const [uploadStatus, setUploadStatus] = useState(null); // 'success', 'error', null
 
+    // Saved Lists State
+    const [savedLists, setSavedLists] = useState([]);
+
+    useEffect(() => {
+        const lists = JSON.parse(localStorage.getItem('savedContactLists') || '[]');
+        setSavedLists(lists);
+    }, []);
+
     const handleSaveTemplate = () => {
         if (newTemplateName.trim()) {
-            setTemplates([...templates, { id: Date.now(), name: newTemplateName, content }]);
+            if (editingTemplateId) {
+                // Find the template being edited
+                const templateToEdit = templates.find(t => t.id === editingTemplateId);
+
+                // If it's a system template, force create new (Save As)
+                if (templateToEdit && templateToEdit.isSystem) {
+                    setTemplates([...templates, {
+                        id: Date.now(),
+                        name: newTemplateName,
+                        content,
+                        isSystem: false
+                    }]);
+                } else {
+                    // Update existing user template
+                    setTemplates(templates.map(t =>
+                        t.id === editingTemplateId ? { ...t, name: newTemplateName, content } : t
+                    ));
+                }
+                setEditingTemplateId(null);
+            } else {
+                // Create new template
+                setTemplates([...templates, {
+                    id: Date.now(),
+                    name: newTemplateName,
+                    content,
+                    isSystem: false
+                }]);
+            }
             setNewTemplateName('');
             setShowSaveModal(false);
         }
@@ -31,6 +68,27 @@ const EmailComposer = () => {
     const loadTemplate = (template) => {
         setContent(template.content);
         setSubject(`[Template] ${template.name}`);
+    };
+
+    const editTemplate = (template, e) => {
+        e.stopPropagation();
+        setEditingTemplateId(template.id);
+        setContent(template.content);
+        setSubject(`[Template] ${template.name}`);
+        setNewTemplateName(template.name);
+        setShowSaveModal(true);
+    };
+
+    const deleteTemplate = (templateId, e) => {
+        e.stopPropagation();
+        const template = templates.find(t => t.id === templateId);
+        if (template && template.isSystem) {
+            alert("System templates cannot be deleted.");
+            return;
+        }
+        if (confirm('Are you sure you want to delete this template?')) {
+            setTemplates(templates.filter(t => t.id !== templateId));
+        }
     };
 
     const handleCsvChange = (e) => {
@@ -114,7 +172,11 @@ const EmailComposer = () => {
                 </div>
                 <div className="flex gap-3">
                     <button
-                        onClick={() => setShowSaveModal(true)}
+                        onClick={() => {
+                            setEditingTemplateId(null);
+                            setNewTemplateName('');
+                            setShowSaveModal(true);
+                        }}
                         className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
                     >
                         <Save size={18} />
@@ -148,10 +210,19 @@ const EmailComposer = () => {
             {/* Save Template Modal */}
             {showSaveModal && (
                 <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                    <div className="bg-white rounded-xl p-6 w-96 shadow-2xl">
+                    <div className="bg-white rounded-xl shadow-lg p-6 w-full max-w-md">
                         <div className="flex justify-between items-center mb-4">
-                            <h3 className="text-lg font-bold text-gray-900">Save as Template</h3>
-                            <button onClick={() => setShowSaveModal(false)} className="text-gray-500 hover:text-gray-700">
+                            <h3 className="text-lg font-bold text-gray-900">
+                                {editingTemplateId ? 'Edit Template' : 'Save as Template'}
+                            </h3>
+                            <button
+                                onClick={() => {
+                                    setShowSaveModal(false);
+                                    setEditingTemplateId(null);
+                                    setNewTemplateName('');
+                                }}
+                                className="text-gray-500 hover:text-gray-700"
+                            >
                                 <X size={20} />
                             </button>
                         </div>
@@ -166,7 +237,11 @@ const EmailComposer = () => {
                         />
                         <div className="flex gap-3 justify-end">
                             <button
-                                onClick={() => setShowSaveModal(false)}
+                                onClick={() => {
+                                    setShowSaveModal(false);
+                                    setEditingTemplateId(null);
+                                    setNewTemplateName('');
+                                }}
                                 className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
                             >
                                 Cancel
@@ -175,7 +250,7 @@ const EmailComposer = () => {
                                 onClick={handleSaveTemplate}
                                 className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
                             >
-                                Save
+                                {editingTemplateId ? 'Update' : 'Save'}
                             </button>
                         </div>
                     </div>
@@ -210,36 +285,107 @@ const EmailComposer = () => {
                     {/* Email Content Editor */}
                     <div className="bg-white rounded-xl shadow-sm border border-gray-100 flex-1 flex flex-col overflow-hidden">
                         <div className="border-b border-gray-100 p-2 flex gap-2 bg-gray-50">
+                            {/* Editor Mode Toggle */}
                             <button
-                                onClick={() => setViewMode('edit')}
-                                className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${viewMode === 'edit' ? 'bg-white shadow-sm text-indigo-600' : 'text-gray-600 hover:bg-gray-200'
+                                onClick={() => {
+                                    setEditorMode('rich');
+                                    setViewMode('edit');
+                                }}
+                                className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${editorMode === 'rich' ? 'bg-white shadow-sm text-indigo-600' : 'text-gray-600 hover:bg-gray-200'
                                     }`}
                             >
                                 <FileText size={16} />
-                                Rich Editor
+                                Rich Text
                             </button>
                             <button
-                                onClick={() => setViewMode('preview')}
-                                className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${viewMode === 'preview' ? 'bg-white shadow-sm text-indigo-600' : 'text-gray-600 hover:bg-gray-200'
+                                onClick={() => setEditorMode('html')}
+                                className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${editorMode === 'html' ? 'bg-white shadow-sm text-indigo-600' : 'text-gray-600 hover:bg-gray-200'
                                     }`}
                             >
-                                <Eye size={16} />
-                                Preview
+                                <FileText size={16} />
+                                HTML
                             </button>
+
+                            {/* Preview Toggle (only for HTML mode) */}
+                            {editorMode === 'html' && (
+                                <>
+                                    <div className="border-l border-gray-300 mx-2"></div>
+                                    <button
+                                        onClick={() => setViewMode('edit')}
+                                        className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${viewMode === 'edit' ? 'bg-white shadow-sm text-indigo-600' : 'text-gray-600 hover:bg-gray-200'
+                                            }`}
+                                    >
+                                        <FileText size={16} />
+                                        Edit
+                                    </button>
+                                    <button
+                                        onClick={() => setViewMode('preview')}
+                                        className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${viewMode === 'preview' ? 'bg-white shadow-sm text-indigo-600' : 'text-gray-600 hover:bg-gray-200'
+                                            }`}
+                                    >
+                                        <Eye size={16} />
+                                        Preview
+                                    </button>
+
+                                    {/* Personalization for HTML Mode */}
+                                    {viewMode === 'edit' && (
+                                        <>
+                                            <div className="border-l border-gray-300 mx-2"></div>
+                                            <select
+                                                onChange={(e) => {
+                                                    if (e.target.value) {
+                                                        const token = e.target.value;
+                                                        const textarea = document.querySelector('textarea');
+                                                        if (textarea) {
+                                                            const start = textarea.selectionStart;
+                                                            const end = textarea.selectionEnd;
+                                                            const text = textarea.value;
+                                                            const newText = text.substring(0, start) + token + text.substring(end);
+                                                            setContent(newText);
+                                                            setTimeout(() => {
+                                                                textarea.focus();
+                                                                textarea.setSelectionRange(start + token.length, start + token.length);
+                                                            }, 0);
+                                                        }
+                                                        e.target.value = '';
+                                                    }
+                                                }}
+                                                className="px-2 py-1.5 border border-gray-300 rounded-md text-sm bg-white text-gray-700 hover:border-indigo-500 focus:outline-none focus:border-indigo-500"
+                                                defaultValue=""
+                                            >
+                                                <option value="" disabled>Personalize</option>
+                                                <option value="{{name}}">Name</option>
+                                                <option value="{{email}}">Email</option>
+                                                <option value="{{company}}">Company</option>
+                                            </select>
+                                        </>
+                                    )}
+                                </>
+                            )}
                         </div>
 
                         <div className="flex-1 relative overflow-hidden">
-                            {viewMode === 'edit' ? (
+                            {editorMode === 'rich' ? (
                                 <RichTextEditor
                                     value={content}
                                     onChange={setContent}
                                     placeholder="Start typing your email content... Use {{name}} for personalization."
                                 />
                             ) : (
-                                <div
-                                    className="w-full h-full p-8 prose max-w-none overflow-auto"
-                                    dangerouslySetInnerHTML={{ __html: content }}
-                                />
+                                viewMode === 'edit' ? (
+                                    <textarea
+                                        value={content}
+                                        onChange={(e) => setContent(e.target.value)}
+                                        placeholder="Enter HTML code... Use {{name}} for personalization."
+                                        className="w-full h-full p-4 resize-none outline-none border-0 focus:ring-0 font-mono text-sm"
+                                        style={{ minHeight: '400px' }}
+                                    />
+                                ) : (
+                                    <div
+                                        className="w-full h-full p-8 prose max-w-none overflow-auto"
+                                        dangerouslySetInnerHTML={{ __html: content }}
+                                    />
+                                )
                             )}
                         </div>
                     </div>
@@ -274,45 +420,107 @@ const EmailComposer = () => {
                                 >
                                     {csvFile ? 'Change File' : 'Upload CSV'}
                                 </label>
+                                {csvFile && (
+                                    <button
+                                        onClick={() => {
+                                            const name = prompt('Enter a name for this contact list:');
+                                            if (name) {
+                                                const savedLists = JSON.parse(localStorage.getItem('savedContactLists') || '[]');
+                                                const reader = new FileReader();
+                                                reader.onload = (e) => {
+                                                    const content = e.target.result;
+                                                    const listToSave = {
+                                                        id: Date.now(),
+                                                        name,
+                                                        content,
+                                                        fileName: csvFile.name
+                                                    };
+                                                    const updatedLists = [...savedLists, listToSave];
+                                                    localStorage.setItem('savedContactLists', JSON.stringify(updatedLists));
+                                                    setSavedLists(updatedLists);
+                                                    alert('List saved successfully!');
+                                                };
+                                                reader.readAsText(csvFile);
+                                            }
+                                        }}
+                                        className="px-4 py-2 text-indigo-600 hover:bg-indigo-50 rounded-lg border border-indigo-200 transition-colors text-sm font-medium flex items-center gap-2"
+                                        title="Save as List"
+                                    >
+                                        <Save size={16} />
+                                        Save List
+                                    </button>
+                                )}
                             </div>
                         </div>
+
+                        {/* Saved Lists Dropdown */}
+                        {savedLists.length > 0 && (
+                            <div className="mt-4 pt-4 border-t border-gray-100">
+                                <label className="block text-sm font-medium text-gray-700 mb-2">Load Saved List</label>
+                                <select
+                                    onChange={(e) => {
+                                        const listId = e.target.value;
+                                        if (listId) {
+                                            const selectedList = savedLists.find(l => l.id === parseInt(listId));
+                                            if (selectedList) {
+                                                const file = new File([selectedList.content], selectedList.fileName, { type: 'text/csv' });
+                                                setCsvFile(file);
+                                            }
+                                        }
+                                    }}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-indigo-500"
+                                    defaultValue=""
+                                >
+                                    <option value="" disabled>Select a saved list...</option>
+                                    {savedLists.map(list => (
+                                        <option key={list.id} value={list.id}>{list.name} ({list.fileName})</option>
+                                    ))}
+                                </select>
+                            </div>
+                        )}
                     </div>
                 </div>
 
-                {/* Sidebar: Templates */}
+                {/* Sidebar / Templates */}
                 <div className="col-span-4 flex flex-col gap-4">
-                    <div className="bg-white rounded-xl shadow-sm border border-gray-100 flex-1 overflow-hidden flex flex-col">
-                        <div className="p-4 border-b border-gray-100 bg-gray-50">
-                            <h2 className="font-semibold text-gray-700 flex items-center gap-2">
-                                <Layout size={18} />
-                                Templates
-                            </h2>
-                        </div>
-                        <div className="p-4 overflow-auto flex-1 space-y-3">
+                    <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 h-full">
+                        <h2 className="font-bold text-gray-900 mb-4 flex items-center gap-2">
+                            <Layout size={20} className="text-indigo-600" />
+                            Templates
+                        </h2>
+                        <div className="space-y-3">
                             {templates.map((template) => (
                                 <div
                                     key={template.id}
-                                    onClick={() => loadTemplate(template)}
-                                    className="p-3 border border-gray-200 rounded-lg hover:border-indigo-500 hover:bg-indigo-50 cursor-pointer transition-all group"
+                                    className="p-3 border border-gray-200 rounded-lg hover:border-indigo-500 transition-all group relative"
                                 >
-                                    <h3 className="font-medium text-gray-900 group-hover:text-indigo-700">{template.name}</h3>
-                                    <p className="text-xs text-gray-500 mt-1 truncate">
-                                        {template.content.replace(/<[^>]*>/g, '').substring(0, 50)}...
-                                    </p>
+                                    <div onClick={() => loadTemplate(template)} className="cursor-pointer">
+                                        <h3 className="font-medium text-gray-900 group-hover:text-indigo-700 pr-16">{template.name}</h3>
+                                        <p className="text-xs text-gray-500 mt-1 truncate">
+                                            {template.content.replace(/<[^>]*>/g, '')}
+                                        </p>
+                                    </div>
+                                    <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <button
+                                            onClick={(e) => editTemplate(template, e)}
+                                            className="p-1.5 hover:bg-indigo-100 rounded transition-colors"
+                                            title={template.isSystem ? "Edit (Save as new)" : "Edit template"}
+                                        >
+                                            <Edit2 size={14} className="text-indigo-600" />
+                                        </button>
+                                        {!template.isSystem && (
+                                            <button
+                                                onClick={(e) => deleteTemplate(template.id, e)}
+                                                className="p-1.5 hover:bg-red-100 rounded transition-colors"
+                                                title="Delete template"
+                                            >
+                                                <Trash2 size={14} className="text-red-600" />
+                                            </button>
+                                        )}
+                                    </div>
                                 </div>
                             ))}
                         </div>
-                    </div>
-
-                    {/* Helper Info */}
-                    <div className="bg-blue-50 p-4 rounded-xl border border-blue-100">
-                        <h4 className="font-semibold text-blue-800 mb-2">💡 Tips</h4>
-                        <p className="text-xs text-blue-600 mb-2">
-                            Use <code className="bg-blue-100 px-1 rounded">{'{{name}}'}</code> anywhere in your subject or content to personalize emails.
-                        </p>
-                        <p className="text-xs text-blue-600">
-                            Use the rich text editor toolbar to format your emails with fonts, colors, images, links, and CTA buttons.
-                        </p>
                     </div>
                 </div>
             </div>
