@@ -654,19 +654,33 @@ Resources:
                           batch_failures.append({"itemIdentifier": record['messageId']})
                           continue
                       
-                      ses.send_email(
-                          Source=sender,
-                          Destination={'ToAddresses': [email]},
-                          Message={
-                              'Subject': {'Data': subject},
-                              'Body': {'Html': {'Data': body}}
-                          },
-                          ConfigurationSetName=os.environ['CONFIG_SET'],
-                          Tags=[{'Name': 'CampaignId', 'Value': campaign_id}]
-                      )
-                  except Exception as e:
-                      print(f"Failed to send: {e}")
-                      batch_failures.append({"itemIdentifier": record['messageId']})
+                      # 2. Send Email
+                      try:
+                          ses.send_email(
+                              Source=sender,
+                              Destination={'ToAddresses': [email]},
+                              Message={
+                                  'Subject': {'Data': subject},
+                                  'Body': {'Html': {'Data': body}}
+                              },
+                              ConfigurationSetName=os.environ['CONFIG_SET'],
+                              Tags=[{'Name': 'CampaignId', 'Value': campaign_id}]
+                          )
+                      except Exception as e:
+                          print(f"Failed to send: {e}")
+                          
+                          # === FIX: REFUND BALANCE ===
+                          try:
+                              table.update_item(
+                                  Key={'UserId': user_id},
+                                  UpdateExpression="set Balance = Balance + :val",
+                                  ExpressionAttributeValues={':val': 1}
+                              )
+                              print("Refunding balance due to send failure")
+                          except Exception as refund_error:
+                              print(f"CRITICAL: Failed to refund: {refund_error}")
+                              
+                          batch_failures.append({"itemIdentifier": record['messageId']})
               
               return {'batchItemFailures': batch_failures}
 

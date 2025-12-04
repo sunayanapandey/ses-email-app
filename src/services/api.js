@@ -1,5 +1,5 @@
 // AWS SES API Service
-const BASE_URL = "https://t4uuxnefal.execute-api.us-east-1.amazonaws.com/prod";
+const BASE_URL = "https://ef4cm95q5c.execute-api.us-east-1.amazonaws.com/prod";
 
 export const api = {
     // ========== AWS API Endpoints ==========
