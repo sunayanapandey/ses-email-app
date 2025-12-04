@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Papa from 'papaparse';
 import { Upload, Users, FileSpreadsheet, Trash2, CheckCircle } from 'lucide-react';
+import { api } from '../services/api';
 
 const ContactManager = () => {
     const [contacts, setContacts] = useState([]);
@@ -11,9 +12,18 @@ const ContactManager = () => {
     const [selectedListId, setSelectedListId] = useState(null);
 
     useEffect(() => {
-        const lists = JSON.parse(localStorage.getItem('savedContactLists') || '[]');
-        setSavedLists(lists);
+        loadLists();
     }, []);
+
+    const loadLists = async () => {
+        try {
+            const listsData = await api.getLists();
+            setSavedLists(listsData);
+        } catch (error) {
+            console.error('Error loading lists:', error);
+            setSavedLists([]);
+        }
+    };
 
     const handleDrag = (e) => {
         e.preventDefault();
@@ -59,45 +69,73 @@ const ContactManager = () => {
         });
     };
 
-    const saveCurrentList = () => {
+    const saveCurrentList = async () => {
         if (contacts.length === 0) return;
         const name = prompt('Enter a name for this contact list:');
         if (name) {
-            const csv = Papa.unparse(contacts);
-            const newList = {
-                id: Date.now(),
-                name,
-                content: csv,
-                fileName: `${name}.csv`
-            };
-            const updatedLists = [...savedLists, newList];
-            localStorage.setItem('savedContactLists', JSON.stringify(updatedLists));
-            setSavedLists(updatedLists);
-            setSelectedListId(newList.id);
-            alert('List saved successfully!');
+            try {
+                // Step 1: Create list in DynamoDB
+                const newList = await api.createList(name, `Saved from Contact Manager`);
+
+                // Step 2: Parse contacts and add to DynamoDB
+                const contactsToSave = contacts.map(c => ({
+                    email: c.email || c.Email,
+                    name: c.name || c.Name || 'Contact'
+                }));
+
+                await api.batchAddContacts(contactsToSave, newList.id);
+
+                // Step 3: Reload lists
+                const updatedLists = await api.getLists();
+                setSavedLists(updatedLists);
+                setSelectedListId(newList.id);
+
+                alert(`List "${name}" saved successfully with ${contactsToSave.length} contacts!`);
+            } catch (error) {
+                console.error('Error saving list:', error);
+                alert('Failed to save list. Please try again.');
+            }
         }
     };
 
-    const loadList = (list) => {
+    const loadList = async (list) => {
         setSelectedListId(list.id);
-        Papa.parse(list.content, {
-            header: true,
-            skipEmptyLines: true,
-            complete: (results) => {
-                setContacts(results.data);
-            }
-        });
+        try {
+            // Fetch contacts for this list from DynamoDB
+            const contactsData = await api.getContactsByList(list.id);
+
+            // Transform to match expected format
+            const transformedContacts = contactsData.map(c => ({
+                email: c.email,
+                name: c.name,
+                Email: c.email,
+                Name: c.name
+            }));
+
+            setContacts(transformedContacts);
+        } catch (error) {
+            console.error('Error loading contacts:', error);
+            alert('Failed to load contacts. Please try again.');
+        }
     };
 
-    const deleteList = (e, id) => {
+    const deleteList = async (e, id) => {
         e.stopPropagation();
         if (confirm('Are you sure you want to delete this saved list?')) {
-            const updatedLists = savedLists.filter(l => l.id !== id);
-            localStorage.setItem('savedContactLists', JSON.stringify(updatedLists));
-            setSavedLists(updatedLists);
-            if (selectedListId === id) {
-                setSelectedListId(null);
-                setContacts([]);
+            try {
+                await api.deleteList(id);
+                const updatedLists = await api.getLists();
+                setSavedLists(updatedLists);
+
+                if (selectedListId === id) {
+                    setSelectedListId(null);
+                    setContacts([]);
+                }
+
+                alert('List deleted successfully!');
+            } catch (error) {
+                console.error('Error deleting list:', error);
+                alert('Failed to delete list. Please try again.');
             }
         }
     };
@@ -199,7 +237,7 @@ const ContactManager = () => {
                                     >
                                         <div className="overflow-hidden">
                                             <p className="font-medium text-gray-900 truncate">{list.name}</p>
-                                            <p className="text-xs text-gray-500 truncate">{list.fileName}</p>
+                                            <p className="text-xs text-gray-500 truncate">{list.description || 'No description'}</p>
                                         </div>
                                         <button
                                             onClick={(e) => deleteList(e, list.id)}

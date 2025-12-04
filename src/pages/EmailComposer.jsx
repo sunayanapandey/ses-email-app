@@ -27,14 +27,14 @@ const EmailComposer = () => {
     const [senderEmail, setSenderEmail] = useState('');
 
     useEffect(() => {
-        const lists = JSON.parse(localStorage.getItem('savedContactLists') || '[]');
-        setSavedLists(lists);
-
         // Load verified emails from domains
         loadVerifiedEmails();
 
         // Load templates from DynamoDB
         loadTemplates();
+
+        // Load contact lists from DynamoDB
+        loadLists();
     }, []);
 
     const loadVerifiedEmails = async () => {
@@ -167,6 +167,36 @@ const EmailComposer = () => {
                 alert('Failed to delete template. Please try again.');
             }
         }
+    };
+
+    const loadLists = async () => {
+        try {
+            const listsData = await api.getLists();
+            setSavedLists(listsData);
+        } catch (error) {
+            console.error('Error loading lists:', error);
+            setSavedLists([]);
+        }
+    };
+
+    const parseCSV = (csvContent) => {
+        const lines = csvContent.trim().split('\n');
+        const contacts = [];
+
+        for (let i = 0; i < lines.length; i++) {
+            const line = lines[i].trim();
+            if (!line) continue;
+
+            const [email, name] = line.split(',').map(s => s.trim());
+            if (email && email.includes('@')) {
+                contacts.push({
+                    email,
+                    name: name || 'Friend'
+                });
+            }
+        }
+
+        return contacts;
     };
 
     const handleCsvChange = (e) => {
@@ -531,25 +561,38 @@ const EmailComposer = () => {
                                 </label>
                                 {csvFile && (
                                     <button
-                                        onClick={() => {
+                                        onClick={async () => {
                                             const name = prompt('Enter a name for this contact list:');
                                             if (name) {
-                                                const savedLists = JSON.parse(localStorage.getItem('savedContactLists') || '[]');
-                                                const reader = new FileReader();
-                                                reader.onload = (e) => {
-                                                    const content = e.target.result;
-                                                    const listToSave = {
-                                                        id: Date.now(),
-                                                        name,
-                                                        content,
-                                                        fileName: csvFile.name
+                                                try {
+                                                    // Step 1: Create list in DynamoDB
+                                                    const newList = await api.createList(name, `Imported from ${csvFile.name}`);
+
+                                                    // Step 2: Parse CSV and extract contacts
+                                                    const reader = new FileReader();
+                                                    reader.onload = async (e) => {
+                                                        const csvContent = e.target.result;
+                                                        const contacts = parseCSV(csvContent);
+
+                                                        // Step 3: Add contacts to list in DynamoDB
+                                                        try {
+                                                            await api.batchAddContacts(contacts, newList.id);
+
+                                                            // Step 4: Reload lists
+                                                            const updatedLists = await api.getLists();
+                                                            setSavedLists(updatedLists);
+
+                                                            alert(`List "${name}" saved successfully with ${contacts.length} contacts!`);
+                                                        } catch (error) {
+                                                            console.error('Error adding contacts:', error);
+                                                            alert('List created but failed to add some contacts.');
+                                                        }
                                                     };
-                                                    const updatedLists = [...savedLists, listToSave];
-                                                    localStorage.setItem('savedContactLists', JSON.stringify(updatedLists));
-                                                    setSavedLists(updatedLists);
-                                                    alert('List saved successfully!');
-                                                };
-                                                reader.readAsText(csvFile);
+                                                    reader.readAsText(csvFile);
+                                                } catch (error) {
+                                                    console.error('Error saving list:', error);
+                                                    alert('Failed to save list. Please try again.');
+                                                }
                                             }
                                         }}
                                         className="px-4 py-2 text-indigo-600 hover:bg-indigo-50 rounded-lg border border-indigo-200 transition-colors text-sm font-medium flex items-center gap-2"
@@ -567,13 +610,26 @@ const EmailComposer = () => {
                             <div className="mt-4 pt-4 border-t border-gray-100">
                                 <label className="block text-sm font-medium text-gray-700 mb-2">Load Saved List</label>
                                 <select
-                                    onChange={(e) => {
+                                    onChange={async (e) => {
                                         const listId = e.target.value;
                                         if (listId) {
-                                            const selectedList = savedLists.find(l => l.id === parseInt(listId));
-                                            if (selectedList) {
-                                                const file = new File([selectedList.content], selectedList.fileName, { type: 'text/csv' });
+                                            try {
+                                                // Fetch contacts for this list from DynamoDB
+                                                const contacts = await api.getContactsByList(listId);
+
+                                                // Convert contacts back to CSV format
+                                                const csvContent = contacts.map(c => `${c.email},${c.name}`).join('\n');
+
+                                                // Find list name
+                                                const selectedList = savedLists.find(l => l.id === listId);
+                                                const fileName = selectedList ? `${selectedList.name}.csv` : 'contacts.csv';
+
+                                                // Create file object
+                                                const file = new File([csvContent], fileName, { type: 'text/csv' });
                                                 setCsvFile(file);
+                                            } catch (error) {
+                                                console.error('Error loading list contacts:', error);
+                                                alert('Failed to load contacts. Please try again.');
                                             }
                                         }
                                     }}
@@ -582,7 +638,9 @@ const EmailComposer = () => {
                                 >
                                     <option value="" disabled>Select a saved list...</option>
                                     {savedLists.map(list => (
-                                        <option key={list.id} value={list.id}>{list.name} ({list.fileName})</option>
+                                        <option key={list.id} value={list.id}>
+                                            {list.name} {list.description && `(${list.description})`}
+                                        </option>
                                     ))}
                                 </select>
                             </div>

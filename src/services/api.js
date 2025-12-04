@@ -125,6 +125,118 @@ export const api = {
         }
     },
 
+    // ========== Lists Management (Real API) ==========
+
+    // Get all lists
+    getLists: async () => {
+        try {
+            const response = await fetch(`${BASE_URL}/lists`);
+            if (!response.ok) throw new Error('Failed to fetch lists');
+            const data = await response.json();
+
+            return data.map(list => ({
+                id: list.ListId,
+                name: list.Name,
+                description: list.Description || '',
+                createdAt: list.CreatedAt
+            }));
+        } catch (error) {
+            console.error('Error fetching lists:', error);
+            return [];
+        }
+    },
+
+    // Create a new list
+    createList: async (name, description = '') => {
+        try {
+            const response = await fetch(`${BASE_URL}/lists`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, description })
+            });
+
+            if (!response.ok) throw new Error('Failed to create list');
+            const data = await response.json();
+
+            return {
+                id: data.ListId,
+                name: data.Name,
+                description: data.Description || '',
+                createdAt: data.CreatedAt
+            };
+        } catch (error) {
+            console.error('Error creating list:', error);
+            throw error;
+        }
+    },
+
+    // Delete a list
+    deleteList: async (listId) => {
+        try {
+            const response = await fetch(`${BASE_URL}/lists?listId=${encodeURIComponent(listId)}`, {
+                method: 'DELETE'
+            });
+
+            if (!response.ok) throw new Error('Failed to delete list');
+            return await response.json();
+        } catch (error) {
+            console.error('Error deleting list:', error);
+            throw error;
+        }
+    },
+
+    // ========== Contacts Management (Real API) ==========
+
+    // Get contacts for a specific list
+    getContactsByList: async (listId) => {
+        try {
+            const response = await fetch(`${BASE_URL}/contacts?listId=${encodeURIComponent(listId)}`);
+            if (!response.ok) throw new Error('Failed to fetch contacts');
+            const data = await response.json();
+
+            return data.map(contact => ({
+                id: contact.ContactId,
+                email: contact.Email,
+                name: contact.Name,
+                listId: contact.ListId,
+                createdAt: contact.CreatedAt
+            }));
+        } catch (error) {
+            console.error('Error fetching contacts:', error);
+            return [];
+        }
+    },
+
+    // Add a contact to a list
+    addContact: async (email, name, listId) => {
+        try {
+            const response = await fetch(`${BASE_URL}/contacts`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ Email: email, Name: name, ListId: listId })
+            });
+
+            if (!response.ok) throw new Error('Failed to add contact');
+            return await response.json();
+        } catch (error) {
+            console.error('Error adding contact:', error);
+            throw error;
+        }
+    },
+
+    // Batch add contacts to a list
+    batchAddContacts: async (contacts, listId) => {
+        try {
+            const promises = contacts.map(contact =>
+                api.addContact(contact.email, contact.name, listId)
+            );
+            return await Promise.all(promises);
+        } catch (error) {
+            console.error('Error batch adding contacts:', error);
+            throw error;
+        }
+    },
+
     // ========== Template Management (Real API) ==========
 
     // Get all templates
