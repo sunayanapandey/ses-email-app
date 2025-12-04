@@ -9,16 +9,31 @@ const CampaignStats = () => {
     const [campaignFileName, setCampaignFileName] = useState('');
     const [error, setError] = useState(null);
     const [savedCampaigns, setSavedCampaigns] = useState([]);
+    const [searchTerm, setSearchTerm] = useState('');
+    const [showSuggestions, setShowSuggestions] = useState(false);
 
     useEffect(() => {
-        // Load saved campaigns from localStorage
-        const campaigns = JSON.parse(localStorage.getItem('campaigns') || '[]');
-        setSavedCampaigns(campaigns);
+        // Load campaigns from API instead of localStorage
+        loadCampaigns();
     }, []);
+
+    const loadCampaigns = async () => {
+        try {
+            const campaigns = await api.getCampaigns();
+            // Sort by newest first
+            const sortedCampaigns = campaigns.sort((a, b) =>
+                new Date(b.CreatedAt) - new Date(a.CreatedAt)
+            );
+            setSavedCampaigns(sortedCampaigns);
+        } catch (error) {
+            console.error('Failed to load campaigns:', error);
+            setSavedCampaigns([]);
+        }
+    };
 
     const loadStats = async (fileName = campaignFileName) => {
         if (!fileName.trim()) {
-            alert('Please select or enter a campaign file name');
+            alert('Please select or enter a campaign name');
             return;
         }
 
@@ -27,10 +42,10 @@ const CampaignStats = () => {
         console.log('Loading stats for:', fileName);
 
         try {
-            const data = await api.getStats(fileName);
-            console.log('Stats received:', data);
+            const data = await api.getCampaign(fileName);
+            console.log('Campaign received:', data);
 
-            if (!data || !data.fileName) {
+            if (!data || !data.campaignId) {
                 throw new Error('Campaign not found or no data available');
             }
 
@@ -55,6 +70,13 @@ const CampaignStats = () => {
         loadStats(fileName);
     };
 
+    const filteredCampaigns = savedCampaigns.filter(campaign => {
+        const searchLower = searchTerm.toLowerCase();
+        const name = (campaign.OriginalFileName || campaign.CampaignId || '').toLowerCase();
+        const subject = (campaign.Subject || '').toLowerCase();
+        return name.includes(searchLower) || subject.includes(searchLower);
+    });
+
     if (!stats && !loading && !error) {
         return (
             <div className="p-8 max-w-6xl mx-auto">
@@ -72,20 +94,49 @@ const CampaignStats = () => {
                                     <Clock size={18} className="text-indigo-600" />
                                     Recent Campaigns
                                 </h3>
+
+                                {/* Search Input */}
+                                <div className="mb-4 relative">
+                                    <input
+                                        type="text"
+                                        placeholder="Search campaigns..."
+                                        value={searchTerm}
+                                        onChange={(e) => setSearchTerm(e.target.value)}
+                                        className="w-full pl-9 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                                    />
+                                    <Search size={16} className="absolute left-3 top-2.5 text-gray-400" />
+                                </div>
+
                                 <div className="space-y-2 max-h-96 overflow-y-auto">
-                                    {savedCampaigns.map((campaign, idx) => (
-                                        <button
-                                            key={idx}
-                                            onClick={() => selectCampaign(campaign.fileName)}
-                                            className="w-full text-left p-3 border border-gray-200 rounded-lg hover:border-indigo-500 hover:bg-indigo-50 transition-all"
-                                        >
-                                            <p className="font-medium text-gray-900 text-sm">{campaign.name}</p>
-                                            <p className="text-xs text-gray-500 truncate mt-1">{campaign.subject}</p>
-                                            <p className="text-xs text-gray-400 mt-1">
-                                                {new Date(campaign.createdAt).toLocaleDateString()}
-                                            </p>
-                                        </button>
-                                    ))}
+                                    {filteredCampaigns.length > 0 ? (
+                                        filteredCampaigns.map((campaign, idx) => (
+                                            <button
+                                                key={campaign.CampaignId || idx}
+                                                onClick={() => selectCampaign(campaign.CampaignId)}
+                                                className="w-full text-left p-3 border border-gray-200 rounded-lg hover:border-indigo-500 hover:bg-indigo-50 transition-all"
+                                            >
+                                                <p className="font-medium text-gray-900 text-sm">
+                                                    {campaign.OriginalFileName || campaign.CampaignId || 'Unnamed Campaign'}
+                                                </p>
+                                                <p className="text-xs text-gray-500 truncate mt-1">
+                                                    {campaign.Subject || 'No subject'}
+                                                </p>
+                                                <div className="flex gap-3 mt-1 text-xs text-gray-400">
+                                                    <span>Sent: {campaign.SentCount || 0}</span>
+                                                    <span>Open: {campaign.OpenCount || 0}</span>
+                                                </div>
+                                                <p className="text-xs text-gray-400 mt-1">
+                                                    {campaign.CreatedAt
+                                                        ? new Date(campaign.CreatedAt).toLocaleDateString()
+                                                        : 'N/A'}
+                                                </p>
+                                            </button>
+                                        ))
+                                    ) : (
+                                        <div className="text-center py-8 text-gray-500 text-sm">
+                                            No campaigns found matching "{searchTerm}"
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         </div>
@@ -107,15 +158,52 @@ const CampaignStats = () => {
                                         : 'Enter the campaign file name to view statistics'
                                     }
                                 </p>
-                                <div className="flex gap-3">
-                                    <input
-                                        type="text"
-                                        value={campaignFileName}
-                                        onChange={(e) => setCampaignFileName(e.target.value)}
-                                        onKeyPress={(e) => e.key === 'Enter' && loadStats()}
-                                        placeholder="e.g., Newsletter_Jan_2024_1234567890.csv"
-                                        className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
-                                    />
+                                <div className="flex gap-3 relative">
+                                    <div className="flex-1 relative">
+                                        <input
+                                            type="text"
+                                            value={campaignFileName}
+                                            onChange={(e) => {
+                                                setCampaignFileName(e.target.value);
+                                                setShowSuggestions(true);
+                                            }}
+                                            onFocus={() => setShowSuggestions(true)}
+                                            onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+                                            onKeyPress={(e) => e.key === 'Enter' && loadStats()}
+                                            placeholder="e.g., Newsletter_Jan_2024..."
+                                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+                                        />
+
+                                        {/* Autocomplete Dropdown */}
+                                        {showSuggestions && campaignFileName.trim() && (
+                                            <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                                                {savedCampaigns
+                                                    .filter(c =>
+                                                        (c.OriginalFileName || c.CampaignId || '').toLowerCase().includes(campaignFileName.toLowerCase()) ||
+                                                        (c.Subject || '').toLowerCase().includes(campaignFileName.toLowerCase())
+                                                    )
+                                                    .slice(0, 5)
+                                                    .map((campaign, idx) => (
+                                                        <button
+                                                            key={idx}
+                                                            onClick={() => {
+                                                                setCampaignFileName(campaign.CampaignId);
+                                                                loadStats(campaign.CampaignId);
+                                                                setShowSuggestions(false);
+                                                            }}
+                                                            className="w-full text-left px-4 py-3 hover:bg-gray-50 border-b border-gray-100 last:border-0 transition-colors"
+                                                        >
+                                                            <p className="font-medium text-gray-900 text-sm truncate">
+                                                                {campaign.OriginalFileName || campaign.CampaignId}
+                                                            </p>
+                                                            <p className="text-xs text-gray-500 truncate">
+                                                                {campaign.Subject}
+                                                            </p>
+                                                        </button>
+                                                    ))}
+                                            </div>
+                                        )}
+                                    </div>
                                     <button
                                         onClick={() => loadStats()}
                                         className="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-medium flex items-center gap-2"

@@ -55,11 +55,11 @@ export const api = {
         }
     },
 
-    // Get campaign statistics
-    getStats: async (fileName) => {
+    // Get single campaign by ID
+    getCampaign: async (campaignId) => {
         try {
-            console.log('Fetching stats for:', fileName);
-            const url = `${BASE_URL}/stats?fileName=${encodeURIComponent(fileName)}`;
+            console.log('Fetching campaign:', campaignId);
+            const url = `${BASE_URL}/campaigns?campaignId=${encodeURIComponent(campaignId)}`;
             console.log('Request URL:', url);
 
             const response = await fetch(url);
@@ -73,39 +73,70 @@ export const api = {
             console.log('Raw API response:', data);
 
             return {
+                campaignId: data.CampaignId,
+                fileName: data.OriginalFileName || data.CampaignId,
+                subject: data.Subject,
+                body: data.Body,
                 sent: data.SentCount || 0,
                 opened: data.OpenCount || 0,
                 clicked: data.ClickCount || 0,
                 bounced: data.BounceCount || 0,
-                fileName: data.FileName,
-                subject: data.Subject,
-                body: data.Body,
+                status: data.Status,
+                createdAt: data.CreatedAt,
+                senderEmail: data.SenderEmail
             };
         } catch (error) {
-            console.error('Error fetching stats:', error);
+            console.error('Error fetching campaign:', error);
             throw error;
         }
     },
 
-    // ========== Mock/Local Features (Domain Management) ==========
+    // ========== Domain Management (Real API) ==========
 
-    // Domain Management (keeping as mock since not in AWS template)
+    // Get all verified/pending SES domains and emails
     getDomains: async () => {
-        return new Promise((resolve) => {
-            setTimeout(() => {
-                resolve([
-                    { id: 1, domain: 'example.com', status: 'verified' },
-                    { id: 2, domain: 'test.org', status: 'pending' },
-                ]);
-            }, 500);
-        });
+        try {
+            const response = await fetch(`${BASE_URL}/domains`);
+            if (!response.ok) throw new Error('Failed to fetch domains');
+            const data = await response.json();
+
+            // Transform to expected format
+            return data.map(d => ({
+                domain: d.identity,
+                status: d.status === 'Success' ? 'success' : d.status.toLowerCase(),
+                token: d.token
+            }));
+        } catch (error) {
+            console.error('Error fetching domains:', error);
+            return [];
+        }
     },
 
-    verifyDomain: async (domain) => {
-        return new Promise((resolve) => {
-            setTimeout(() => {
-                resolve({ id: Date.now(), domain, status: 'pending' });
-            }, 800);
-        });
+    verifyDomain: async (identity, type = 'email') => {
+        try {
+            const response = await fetch(`${BASE_URL}/domains`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ identity, type })
+            });
+            if (!response.ok) throw new Error('Failed to verify domain/email');
+            return await response.json();
+        } catch (error) {
+            console.error('Error verifying domain:', error);
+            throw error;
+        }
+    },
+
+    deleteDomain: async (identity) => {
+        try {
+            const response = await fetch(`${BASE_URL}/domains?identity=${encodeURIComponent(identity)}`, {
+                method: 'DELETE'
+            });
+            if (!response.ok) throw new Error('Failed to delete domain');
+            return await response.json();
+        } catch (error) {
+            console.error('Error deleting domain:', error);
+            throw error;
+        }
     },
 };
