@@ -30,35 +30,65 @@ const Dashboard = () => {
         }
     };
 
-    // Calculate mock stats based on campaigns
-    const totalCampaigns = campaigns.length;
-    const totalEmailsSent = totalCampaigns * 1250; // Mock average
-    const avgOpenRate = 24.5;
-    const avgClickRate = 3.8;
+    // Helper function to calculate weekly activity from campaign creation dates
+    const calculateWeeklyActivity = (campaigns) => {
+        const last7Days = Array.from({ length: 7 }, (_, i) => {
+            const d = new Date();
+            d.setDate(d.getDate() - (6 - i));
+            return {
+                day: d.toLocaleDateString('en-US', { weekday: 'short' }),
+                date: d.toDateString()
+            };
+        });
 
-    // Mock data for charts
-    const campaignPerformance = campaigns.slice(0, 5).map((campaign, idx) => ({
+        const dayCounts = {};
+        last7Days.forEach(({ date }) => dayCounts[date] = 0);
+
+        campaigns.forEach(campaign => {
+            if (campaign.createdAt) {
+                const campaignDate = new Date(campaign.createdAt).toDateString();
+                if (dayCounts[campaignDate] !== undefined) {
+                    dayCounts[campaignDate] += (campaign.sent || 0);
+                }
+            }
+        });
+
+        return last7Days.map(({ day, date }) => ({
+            day,
+            emails: dayCounts[date]
+        }));
+    };
+
+    // Calculate real stats from DynamoDB campaign data
+    const totalCampaigns = campaigns.length;
+
+    // Sum all sent, opened, clicked, and bounced counts from campaigns
+    const totalEmailsSent = campaigns.reduce((sum, c) => sum + (c.sent || 0), 0);
+    const totalOpened = campaigns.reduce((sum, c) => sum + (c.opened || 0), 0);
+    const totalClicked = campaigns.reduce((sum, c) => sum + (c.clicked || 0), 0);
+    const totalBounced = campaigns.reduce((sum, c) => sum + (c.bounced || 0), 0);
+
+    // Calculate average rates
+    const avgOpenRate = totalEmailsSent > 0 ? ((totalOpened / totalEmailsSent) * 100).toFixed(1) : 0;
+    const avgClickRate = totalEmailsSent > 0 ? ((totalClicked / totalEmailsSent) * 100).toFixed(1) : 0;
+
+    // Real campaign performance data from DynamoDB
+    const campaignPerformance = campaigns.slice(0, 5).map(campaign => ({
         name: campaign.name.substring(0, 15) + '...',
-        sent: 1200 + idx * 100,
-        opened: 280 + idx * 30,
-        clicked: 45 + idx * 5,
+        sent: campaign.sent || 0,
+        opened: campaign.opened || 0,
+        clicked: campaign.clicked || 0,
     }));
 
-    const weeklyActivity = [
-        { day: 'Mon', emails: 1200 },
-        { day: 'Tue', emails: 1800 },
-        { day: 'Wed', emails: 1500 },
-        { day: 'Thu', emails: 2100 },
-        { day: 'Fri', emails: 1900 },
-        { day: 'Sat', emails: 800 },
-        { day: 'Sun', emails: 600 },
-    ];
+    // Calculate weekly activity from actual campaign creation dates
+    const weeklyActivity = calculateWeeklyActivity(campaigns);
 
+    // Real email status distribution from DynamoDB
     const statusData = [
-        { name: 'Delivered', value: totalEmailsSent * 0.95, color: '#10b981' },
-        { name: 'Opened', value: totalEmailsSent * 0.245, color: '#3b82f6' },
-        { name: 'Clicked', value: totalEmailsSent * 0.038, color: '#8b5cf6' },
-        { name: 'Bounced', value: totalEmailsSent * 0.02, color: '#ef4444' },
+        { name: 'Sent', value: totalEmailsSent, color: '#10b981' },
+        { name: 'Opened', value: totalOpened, color: '#3b82f6' },
+        { name: 'Clicked', value: totalClicked, color: '#8b5cf6' },
+        { name: 'Bounced', value: totalBounced, color: '#ef4444' },
     ];
 
     const StatCard = ({ label, value, icon: Icon, color, trend, to }) => (
