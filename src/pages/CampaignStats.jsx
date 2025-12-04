@@ -22,7 +22,7 @@ const CampaignStats = () => {
             const campaigns = await api.getCampaigns();
             // Sort by newest first
             const sortedCampaigns = campaigns.sort((a, b) =>
-                new Date(b.CreatedAt) - new Date(a.CreatedAt)
+                new Date(b.createdAt) - new Date(a.createdAt)
             );
             setSavedCampaigns(sortedCampaigns);
         } catch (error) {
@@ -72,8 +72,8 @@ const CampaignStats = () => {
 
     const filteredCampaigns = savedCampaigns.filter(campaign => {
         const searchLower = searchTerm.toLowerCase();
-        const name = (campaign.OriginalFileName || campaign.CampaignId || '').toLowerCase();
-        const subject = (campaign.Subject || '').toLowerCase();
+        const name = (campaign.name || campaign.campaignId || '').toLowerCase();
+        const subject = (campaign.subject || '').toLowerCase();
         return name.includes(searchLower) || subject.includes(searchLower);
     });
 
@@ -111,23 +111,23 @@ const CampaignStats = () => {
                                     {filteredCampaigns.length > 0 ? (
                                         filteredCampaigns.map((campaign, idx) => (
                                             <button
-                                                key={campaign.CampaignId || idx}
-                                                onClick={() => selectCampaign(campaign.CampaignId)}
+                                                key={campaign.campaignId || idx}
+                                                onClick={() => selectCampaign(campaign.campaignId)}
                                                 className="w-full text-left p-3 border border-gray-200 rounded-lg hover:border-indigo-500 hover:bg-indigo-50 transition-all"
                                             >
                                                 <p className="font-medium text-gray-900 text-sm">
-                                                    {campaign.OriginalFileName || campaign.CampaignId || 'Unnamed Campaign'}
+                                                    {campaign.name || campaign.campaignId || 'Unnamed Campaign'}
                                                 </p>
                                                 <p className="text-xs text-gray-500 truncate mt-1">
-                                                    {campaign.Subject || 'No subject'}
+                                                    {campaign.subject || 'No subject'}
                                                 </p>
                                                 <div className="flex gap-3 mt-1 text-xs text-gray-400">
-                                                    <span>Sent: {campaign.SentCount || 0}</span>
-                                                    <span>Open: {campaign.OpenCount || 0}</span>
+                                                    <span>Sent: {campaign.sent || 0}</span>
+                                                    <span>Open: {campaign.opened || 0}</span>
                                                 </div>
                                                 <p className="text-xs text-gray-400 mt-1">
-                                                    {campaign.CreatedAt
-                                                        ? new Date(campaign.CreatedAt).toLocaleDateString()
+                                                    {campaign.createdAt
+                                                        ? new Date(campaign.createdAt).toLocaleDateString()
                                                         : 'N/A'}
                                                 </p>
                                             </button>
@@ -179,25 +179,25 @@ const CampaignStats = () => {
                                             <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto">
                                                 {savedCampaigns
                                                     .filter(c =>
-                                                        (c.OriginalFileName || c.CampaignId || '').toLowerCase().includes(campaignFileName.toLowerCase()) ||
-                                                        (c.Subject || '').toLowerCase().includes(campaignFileName.toLowerCase())
+                                                        (c.name || c.campaignId || '').toLowerCase().includes(campaignFileName.toLowerCase()) ||
+                                                        (c.subject || '').toLowerCase().includes(campaignFileName.toLowerCase())
                                                     )
                                                     .slice(0, 5)
                                                     .map((campaign, idx) => (
                                                         <button
                                                             key={idx}
                                                             onClick={() => {
-                                                                setCampaignFileName(campaign.CampaignId);
-                                                                loadStats(campaign.CampaignId);
+                                                                setCampaignFileName(campaign.campaignId);
+                                                                loadStats(campaign.campaignId);
                                                                 setShowSuggestions(false);
                                                             }}
                                                             className="w-full text-left px-4 py-3 hover:bg-gray-50 border-b border-gray-100 last:border-0 transition-colors"
                                                         >
                                                             <p className="font-medium text-gray-900 text-sm truncate">
-                                                                {campaign.OriginalFileName || campaign.CampaignId}
+                                                                {campaign.name || campaign.campaignId}
                                                             </p>
                                                             <p className="text-xs text-gray-500 truncate">
-                                                                {campaign.Subject}
+                                                                {campaign.subject}
                                                             </p>
                                                         </button>
                                                     ))}

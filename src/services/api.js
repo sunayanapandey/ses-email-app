@@ -92,6 +92,39 @@ export const api = {
         }
     },
 
+    // Get all campaigns
+    getCampaigns: async () => {
+        try {
+            const response = await fetch(`${BASE_URL}/campaigns`);
+
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+
+            const data = await response.json();
+            console.log('Campaigns from API:', data);
+
+            // Transform the data to match expected format
+            return data.map(campaign => ({
+                campaignId: campaign.CampaignId,
+                name: campaign.OriginalFileName || campaign.CampaignId,
+                subject: campaign.Subject,
+                body: campaign.Body,
+                sent: campaign.SentCount || 0,
+                opened: campaign.OpenCount || 0,
+                clicked: campaign.ClickCount || 0,
+                bounced: campaign.BounceCount || 0,
+                status: campaign.Status,
+                createdAt: campaign.CreatedAt || campaign.UpdatedAt || new Date().toISOString(),
+                senderEmail: campaign.SenderEmail,
+                listId: campaign.ListId
+            }));
+        } catch (error) {
+            console.error('Error fetching campaigns:', error);
+            return [];
+        }
+    },
+
     // ========== Domain Management (Real API) ==========
 
     // Get all verified/pending SES domains and emails

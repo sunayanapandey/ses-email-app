@@ -1,15 +1,10 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: 'SES V3: Tracking Opens, Clicks, and Bounces'
-
-Parameters:
-  SenderEmail:
-    Type: String
-    Description: "Your VERIFIED SES Email Address"
+Description: 'SES App V5: Final Fix (Smart ID Mapping)'
 
 Resources:
-  # ---------------------------------------------------------
-  # 1. DynamoDB Tables (Now with Stats)
-  # ---------------------------------------------------------
+  # ==================================================================================
+  # 1. DYNAMODB TABLES
+  # ==================================================================================
   UsersTable:
     Type: AWS::DynamoDB::Table
     Properties:
@@ -18,120 +13,52 @@ Resources:
       AttributeDefinitions: [{ AttributeName: "UserId", AttributeType: "S" }]
       KeySchema: [{ AttributeName: "UserId", KeyType: "HASH" }]
 
+  ContactsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: "SesApp_Contacts"
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions: 
+        - { AttributeName: "ContactId", AttributeType: "S" }
+        - { AttributeName: "ListId", AttributeType: "S" }
+      KeySchema: [{ AttributeName: "ContactId", KeyType: "HASH" }]
+      GlobalSecondaryIndexes:
+        - IndexName: "ListIdIndex"
+          KeySchema: [{ AttributeName: "ListId", KeyType: "HASH" }]
+          Projection: { ProjectionType: "ALL" }
+
+  ListsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: "SesApp_Lists"
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions: [{ AttributeName: "ListId", AttributeType: "S" }]
+      KeySchema: [{ AttributeName: "ListId", KeyType: "HASH" }]
+
+  TemplatesTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: "SesApp_Templates"
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions: [{ AttributeName: "TemplateId", AttributeType: "S" }]
+      KeySchema: [{ AttributeName: "TemplateId", KeyType: "HASH" }]
+
   CampaignsTable:
     Type: AWS::DynamoDB::Table
     Properties:
-      TableName: "SesApp_Campaigns"
+      TableName: "SesApp_Campaigns_v2"
       BillingMode: PAY_PER_REQUEST
-      AttributeDefinitions: [{ AttributeName: "FileName", AttributeType: "S" }]
-      KeySchema: [{ AttributeName: "FileName", KeyType: "HASH" }]
+      AttributeDefinitions: [{ AttributeName: "CampaignId", AttributeType: "S" }]
+      KeySchema: [{ AttributeName: "CampaignId", KeyType: "HASH" }]
 
-  # ---------------------------------------------------------
-  # 2. SES Configuration Set (The "Spy")
-  # ---------------------------------------------------------
-  SesConfigSet:
-    Type: AWS::SES::ConfigurationSet
-    Properties:
-      Name: "SesAppTracker"
-
-  # Tell SES: "Send all tracking events to my SNS Topic"
-  SesEventDestination:
-    Type: AWS::SES::ConfigurationSetEventDestination
-    Properties:
-      ConfigurationSetName: !Ref SesConfigSet
-      EventDestination:
-        Name: "SnsTracker"
-        Enabled: true
-        MatchingEventTypes: ["open", "click", "bounce", "delivery"]
-        SnsDestination:
-          TopicARN: !Ref TrackingTopic
-
-  # ---------------------------------------------------------
-  # 3. SNS Topic (The "Reporter")
-  # ---------------------------------------------------------
-  TrackingTopic:
-    Type: AWS::SNS::Topic
-    Properties:
-      TopicName: "SesEventsTopic"
-
-  # ---------------------------------------------------------
-  # 4. Lambda: Tracker (The "Scribe")
-  # ---------------------------------------------------------
-  TrackerFunction:
-    Type: AWS::Lambda::Function
-    Properties:
-      Handler: index.handler
-      Role: !GetAtt LambdaRole.Arn
-      Runtime: nodejs20.x
-      Environment: { Variables: { CAMPAIGN_TABLE: !Ref CampaignsTable } }
-      Code:
-        ZipFile: |
-          const { DynamoDBClient } = require("@aws-sdk/client-dynamodb");
-          const { DynamoDBDocumentClient, UpdateCommand } = require("@aws-sdk/lib-dynamodb");
-          const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({}));
-
-          exports.handler = async (event) => {
-            for (const record of event.Records) {
-              const sesMsg = JSON.parse(record.Sns.Message);
-              const type = sesMsg.eventType; // "Open", "Click", "Bounce"
-              
-              // We retrieve the Campaign ID from the tags we attached when sending
-              const tags = sesMsg.mail.tags || {};
-              const campaignId = tags['CampaignId'] ? tags['CampaignId'][0] : null;
-
-              if (!campaignId) {
-                console.log("No CampaignId found in event");
-                continue;
-              }
-
-              // Determine which counter to increment
-              let updateExpr = "";
-              if (type === 'Open') updateExpr = "ADD OpenCount :inc";
-              else if (type === 'Click') updateExpr = "ADD ClickCount :inc";
-              else if (type === 'Bounce') updateExpr = "ADD BounceCount :inc";
-              else if (type === 'Delivery') updateExpr = "ADD SentCount :inc";
-              else continue;
-
-              try {
-                await ddb.send(new UpdateCommand({
-                  TableName: process.env.CAMPAIGN_TABLE,
-                  Key: { FileName: campaignId },
-                  UpdateExpression: updateExpr,
-                  ExpressionAttributeValues: { ":inc": 1 }
-                }));
-                console.log(`Updated ${type} for ${campaignId}`);
-              } catch (e) {
-                console.error("DB Error", e);
-              }
-            }
-          };
-
-  # ---------------------------------------------------------
-  # 5. Connect SNS -> Tracker Lambda
-  # ---------------------------------------------------------
-  TrackerSubscription:
-    Type: AWS::Lambda::Permission
-    Properties:
-      Action: lambda:InvokeFunction
-      FunctionName: !Ref TrackerFunction
-      Principal: sns.amazonaws.com
-      SourceArn: !Ref TrackingTopic
-
-  SnsSubscription:
-    Type: AWS::SNS::Subscription
-    Properties:
-      Endpoint: !GetAtt TrackerFunction.Arn
-      Protocol: lambda
-      TopicArn: !Ref TrackingTopic
-
-  # ---------------------------------------------------------
-  # 6. Roles & Core Infrastructure (Same as before)
-  # ---------------------------------------------------------
+  # ==================================================================================
+  # 2. CORE INFRASTRUCTURE
+  # ==================================================================================
   UploadBucket:
     Type: AWS::S3::Bucket
     DependsOn: S3BucketPermission
     Properties:
-      BucketName: !Sub "ses-v3-${AWS::AccountId}-${AWS::Region}"
+      BucketName: !Sub "ses-v5-upload-${AWS::AccountId}-${AWS::Region}"
       CorsConfiguration:
         CorsRules:
           - AllowedHeaders: ["*"]
@@ -144,109 +71,13 @@ Resources:
 
   EmailQueue:
     Type: AWS::SQS::Queue
-    Properties: { VisibilityTimeout: 60 }
+    Properties: 
+      VisibilityTimeout: 120
 
-  LambdaRole:
-    Type: AWS::IAM::Role
-    Properties:
-      AssumeRolePolicyDocument:
-        Version: '2012-10-17'
-        Statement: [{ Effect: Allow, Principal: { Service: lambda.amazonaws.com }, Action: sts:AssumeRole }]
-      Policies:
-        - PolicyName: FullAccess
-          PolicyDocument:
-            Version: '2012-10-17'
-            Statement:
-              - Effect: Allow
-                Action: ["dynamodb:*", "sqs:*", "ses:*", "s3:*", "logs:*"]
-                Resource: "*"
-
-  SqsEventSource: { Type: AWS::Lambda::EventSourceMapping, Properties: { BatchSize: 1, EventSourceArn: !GetAtt EmailQueue.Arn, FunctionName: !Ref SendEmailFunction } }
-  S3BucketPermission: { Type: AWS::Lambda::Permission, Properties: { Action: lambda:InvokeFunction, FunctionName: !Ref ProcessCsvFunction, Principal: s3.amazonaws.com, SourceAccount: !Ref "AWS::AccountId" } }
-
-  # ---------------------------------------------------------
-  # 8. API Gateway (Added /stats endpoint)
-  # ---------------------------------------------------------
-  HttpApi:
-    Type: AWS::ApiGatewayV2::Api
-    Properties: { Name: SesV3_API, ProtocolType: HTTP, CorsConfiguration: { AllowOrigins: ["*"], AllowMethods: ["POST", "GET"], AllowHeaders: ["*"] } }
-  ApiStage:
-    Type: AWS::ApiGatewayV2::Stage
-    Properties: { ApiId: !Ref HttpApi, StageName: prod, AutoDeploy: true }
-
-  # New Lambda to Read Stats
-  GetStatsFunction:
-    Type: AWS::Lambda::Function
-    Properties:
-      Handler: index.handler
-      Role: !GetAtt LambdaRole.Arn
-      Runtime: nodejs20.x
-      Environment: { Variables: { CAMPAIGN_TABLE: !Ref CampaignsTable } }
-      Code:
-        ZipFile: |
-          const { DynamoDBClient } = require("@aws-sdk/client-dynamodb");
-          const { DynamoDBDocumentClient, GetCommand } = require("@aws-sdk/lib-dynamodb");
-          const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({}));
-          exports.handler = async (event) => {
-            const fileName = event.queryStringParameters.fileName;
-            const data = await ddb.send(new GetCommand({ TableName: process.env.CAMPAIGN_TABLE, Key: { FileName: fileName } }));
-            return { statusCode: 200, body: JSON.stringify(data.Item || {}) };
-          };
-
-  # Routes
-  Route1: { Type: AWS::ApiGatewayV2::Route, Properties: { ApiId: !Ref HttpApi, RouteKey: "POST /upload", Target: !Join [ "/", [ "integrations", !Ref UploadIntegration ] ] } }
-  Route2: { Type: AWS::ApiGatewayV2::Route, Properties: { ApiId: !Ref HttpApi, RouteKey: "GET /balance", Target: !Join [ "/", [ "integrations", !Ref BalanceIntegration ] ] } }
-  Route3: { Type: AWS::ApiGatewayV2::Route, Properties: { ApiId: !Ref HttpApi, RouteKey: "GET /stats", Target: !Join [ "/", [ "integrations", !Ref StatsIntegration ] ] } }
-
-  # Integrations
-  UploadIntegration: { Type: AWS::ApiGatewayV2::Integration, Properties: { ApiId: !Ref HttpApi, IntegrationType: AWS_PROXY, IntegrationUri: !GetAtt GetUploadUrlFunction.Arn, PayloadFormatVersion: "2.0" } }
-  BalanceIntegration: { Type: AWS::ApiGatewayV2::Integration, Properties: { ApiId: !Ref HttpApi, IntegrationType: AWS_PROXY, IntegrationUri: !GetAtt GetBalanceFunction.Arn, PayloadFormatVersion: "2.0" } }
-  StatsIntegration: { Type: AWS::ApiGatewayV2::Integration, Properties: { ApiId: !Ref HttpApi, IntegrationType: AWS_PROXY, IntegrationUri: !GetAtt GetStatsFunction.Arn, PayloadFormatVersion: "2.0" } }
-
-  # API Permissions
-  ApiPerm1: { Type: AWS::Lambda::Permission, Properties: { Action: lambda:InvokeFunction, FunctionName: !Ref GetUploadUrlFunction, Principal: apigateway.amazonaws.com } }
-  ApiPerm2: { Type: AWS::Lambda::Permission, Properties: { Action: lambda:InvokeFunction, FunctionName: !Ref GetBalanceFunction, Principal: apigateway.amazonaws.com } }
-  ApiPerm3: { Type: AWS::Lambda::Permission, Properties: { Action: lambda:InvokeFunction, FunctionName: !Ref GetStatsFunction, Principal: apigateway.amazonaws.com } }
-
-Outputs:
-  ApiUrl:
-    Value: !Sub "https://${HttpApi}.execute-api.${AWS::Region}.amazonaws.com/prod"AWSTemplateFormatVersion: '2010-09-09'
-Description: 'SES V3: Tracking Opens, Clicks, and Bounces'
-
-Parameters:
-  SenderEmail:
-    Type: String
-    Description: "Your VERIFIED SES Email Address"
-
-Resources:
-  # ---------------------------------------------------------
-  # 1. DynamoDB Tables (Now with Stats)
-  # ---------------------------------------------------------
-  UsersTable:
-    Type: AWS::DynamoDB::Table
-    Properties:
-      TableName: "SesApp_Users"
-      BillingMode: PAY_PER_REQUEST
-      AttributeDefinitions: [{ AttributeName: "UserId", AttributeType: "S" }]
-      KeySchema: [{ AttributeName: "UserId", KeyType: "HASH" }]
-
-  CampaignsTable:
-    Type: AWS::DynamoDB::Table
-    Properties:
-      TableName: "SesApp_Campaigns"
-      BillingMode: PAY_PER_REQUEST
-      AttributeDefinitions: [{ AttributeName: "FileName", AttributeType: "S" }]
-      KeySchema: [{ AttributeName: "FileName", KeyType: "HASH" }]
-
-  # ---------------------------------------------------------
-  # 2. SES Configuration Set (The "Spy")
-  # ---------------------------------------------------------
   SesConfigSet:
     Type: AWS::SES::ConfigurationSet
-    Properties:
-      Name: "SesAppTracker"
+    Properties: { Name: "SesAppTrackerV5" }
 
-  # Tell SES: "Send all tracking events to my SNS Topic"
   SesEventDestination:
     Type: AWS::SES::ConfigurationSetEventDestination
     Properties:
@@ -254,309 +85,693 @@ Resources:
       EventDestination:
         Name: "SnsTracker"
         Enabled: true
-        MatchingEventTypes: ["open", "click", "bounce", "delivery"]
-        SnsDestination:
-          TopicARN: !Ref TrackingTopic
+        MatchingEventTypes: ["open", "click", "bounce", "complaint", "reject"]
+        SnsDestination: { TopicARN: !Ref TrackingTopic }
 
-  # ---------------------------------------------------------
-  # 3. SNS Topic (The "Reporter")
-  # ---------------------------------------------------------
   TrackingTopic:
     Type: AWS::SNS::Topic
-    Properties:
-      TopicName: "SesEventsTopic"
+    Properties: { TopicName: "SesEventsTopicV5" }
 
-  # ---------------------------------------------------------
-  # 4. Lambda: Tracker (The "Scribe")
-  # ---------------------------------------------------------
-  TrackerFunction:
-    Type: AWS::Lambda::Function
-    Properties:
-      Handler: index.handler
-      Role: !GetAtt LambdaRole.Arn
-      Runtime: nodejs20.x
-      Environment: { Variables: { CAMPAIGN_TABLE: !Ref CampaignsTable } }
-      Code:
-        ZipFile: |
-          const { DynamoDBClient } = require("@aws-sdk/client-dynamodb");
-          const { DynamoDBDocumentClient, UpdateCommand } = require("@aws-sdk/lib-dynamodb");
-          const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({}));
-
-          exports.handler = async (event) => {
-            for (const record of event.Records) {
-              const sesMsg = JSON.parse(record.Sns.Message);
-              const type = sesMsg.eventType; // "Open", "Click", "Bounce"
-              
-              // We retrieve the Campaign ID from the tags we attached when sending
-              const tags = sesMsg.mail.tags || {};
-              const campaignId = tags['CampaignId'] ? tags['CampaignId'][0] : null;
-
-              if (!campaignId) {
-                console.log("No CampaignId found in event");
-                continue;
-              }
-
-              // Determine which counter to increment
-              let updateExpr = "";
-              if (type === 'Open') updateExpr = "ADD OpenCount :inc";
-              else if (type === 'Click') updateExpr = "ADD ClickCount :inc";
-              else if (type === 'Bounce') updateExpr = "ADD BounceCount :inc";
-              else if (type === 'Delivery') updateExpr = "ADD SentCount :inc";
-              else continue;
-
-              try {
-                await ddb.send(new UpdateCommand({
-                  TableName: process.env.CAMPAIGN_TABLE,
-                  Key: { FileName: campaignId },
-                  UpdateExpression: updateExpr,
-                  ExpressionAttributeValues: { ":inc": 1 }
-                }));
-                console.log(`Updated ${type} for ${campaignId}`);
-              } catch (e) {
-                console.error("DB Error", e);
-              }
-            }
-          };
-
-  # ---------------------------------------------------------
-  # 5. Connect SNS -> Tracker Lambda
-  # ---------------------------------------------------------
-  TrackerSubscription:
-    Type: AWS::Lambda::Permission
-    Properties:
-      Action: lambda:InvokeFunction
-      FunctionName: !Ref TrackerFunction
-      Principal: sns.amazonaws.com
-      SourceArn: !Ref TrackingTopic
-
-  SnsSubscription:
-    Type: AWS::SNS::Subscription
-    Properties:
-      Endpoint: !GetAtt TrackerFunction.Arn
-      Protocol: lambda
-      TopicArn: !Ref TrackingTopic
-
-  # ---------------------------------------------------------
-  # 6. Roles & Core Infrastructure (Same as before)
-  # ---------------------------------------------------------
-  UploadBucket:
-    Type: AWS::S3::Bucket
-    DependsOn: S3BucketPermission
-    Properties:
-      BucketName: !Sub "ses-v3-${AWS::AccountId}-${AWS::Region}"
-      CorsConfiguration:
-        CorsRules:
-          - AllowedHeaders: ["*"]
-            AllowedMethods: ["PUT", "POST"]
-            AllowedOrigins: ["*"]
-      NotificationConfiguration:
-        LambdaConfigurations:
-          - Event: 's3:ObjectCreated:*'
-            Function: !GetAtt ProcessCsvFunction.Arn
-
-  EmailQueue:
-    Type: AWS::SQS::Queue
-    Properties: { VisibilityTimeout: 60 }
-
+  # ==================================================================================
+  # 3. IAM ROLES
+  # ==================================================================================
   LambdaRole:
     Type: AWS::IAM::Role
     Properties:
       AssumeRolePolicyDocument:
         Version: '2012-10-17'
         Statement: [{ Effect: Allow, Principal: { Service: lambda.amazonaws.com }, Action: sts:AssumeRole }]
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
       Policies:
         - PolicyName: FullAccess
           PolicyDocument:
             Version: '2012-10-17'
             Statement:
               - Effect: Allow
-                Action: ["dynamodb:*", "sqs:*", "ses:*", "s3:*", "logs:*"]
+                Action: ["dynamodb:*", "sqs:*", "ses:*", "s3:*", "sns:*", "logs:*"]
                 Resource: "*"
 
-  # ---------------------------------------------------------
-  # 7. Worker Lambdas (Updated to use ConfigSet & Tags)
-  # ---------------------------------------------------------
+  # ==================================================================================
+  # 4. API FUNCTIONS
+  # ==================================================================================
+  ContactsFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      Handler: index.handler
+      Runtime: python3.11
+      Timeout: 30
+      MemorySize: 128
+      Environment:
+        Variables:
+          TABLE_CONTACTS: !Ref ContactsTable
+          TABLE_LISTS: !Ref ListsTable
+      Role: !GetAtt LambdaRole.Arn
+      Code:
+        ZipFile: |
+          import json, os, uuid, boto3
+          from datetime import datetime
+          from boto3.dynamodb.conditions import Key
+
+          dynamodb = boto3.resource('dynamodb')
+          table = dynamodb.Table(os.environ['TABLE_CONTACTS'])
+
+          def handler(event, context):
+              try:
+                  method = event['requestContext']['http']['method']
+                  body = json.loads(event['body']) if 'body' in event and event['body'] else {}
+                  query = event.get('queryStringParameters', {}) or {}
+
+                  if method == 'GET':
+                      if 'listId' in query:
+                          response = table.query(IndexName='ListIdIndex', KeyConditionExpression=Key('ListId').eq(query['listId']))
+                      else:
+                          response = table.scan(Limit=50)
+                      return {'statusCode': 200, 'body': json.dumps(response.get('Items', []))}
+                  if method == 'POST':
+                      item_id = str(uuid.uuid4())
+                      body['ContactId'] = item_id
+                      body['CreatedAt'] = datetime.utcnow().isoformat()
+                      table.put_item(Item=body)
+                      return {'statusCode': 201, 'body': json.dumps(body)}
+                  if method == 'DELETE':
+                      table.delete_item(Key={'ContactId': query.get('contactId')})
+                      return {'statusCode': 200, 'body': json.dumps({'message': 'Deleted'})}
+              except Exception as e:
+                  print(e)
+                  return {'statusCode': 500, 'body': json.dumps({'error': str(e)})}
+
+  ListsFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      Handler: index.handler
+      Runtime: python3.11
+      Timeout: 30
+      MemorySize: 128
+      Environment:
+        Variables:
+          TABLE_LISTS: !Ref ListsTable
+      Role: !GetAtt LambdaRole.Arn
+      Code:
+        ZipFile: |
+          import json, os, uuid, boto3
+          from datetime import datetime
+
+          dynamodb = boto3.resource('dynamodb')
+          table = dynamodb.Table(os.environ['TABLE_LISTS'])
+
+          def handler(event, context):
+              try:
+                  method = event['requestContext']['http']['method']
+                  body = json.loads(event['body']) if 'body' in event and event['body'] else {}
+                  query = event.get('queryStringParameters', {}) or {}
+
+                  if method == 'GET':
+                      response = table.scan()
+                      return {'statusCode': 200, 'body': json.dumps(response.get('Items', []))}
+                  if method == 'POST':
+                      item_id = str(uuid.uuid4())
+                      item = {
+                          'ListId': item_id,
+                          'Name': body.get('name'),
+                          'Description': body.get('description'),
+                          'CreatedAt': datetime.utcnow().isoformat()
+                      }
+                      table.put_item(Item=item)
+                      return {'statusCode': 201, 'body': json.dumps(item)}
+                  if method == 'DELETE':
+                      table.delete_item(Key={'ListId': query.get('listId')})
+                      return {'statusCode': 200, 'body': json.dumps({'message': 'Deleted'})}
+              except Exception as e:
+                  print(e)
+                  return {'statusCode': 500, 'body': json.dumps({'error': str(e)})}
+
+  TemplatesFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      Handler: index.handler
+      Runtime: python3.11
+      Timeout: 30
+      MemorySize: 128
+      Environment:
+        Variables:
+          TABLE_TEMPLATES: !Ref TemplatesTable
+      Role: !GetAtt LambdaRole.Arn
+      Code:
+        ZipFile: |
+          import json, os, uuid, boto3
+          from datetime import datetime
+
+          dynamodb = boto3.resource('dynamodb')
+          table = dynamodb.Table(os.environ['TABLE_TEMPLATES'])
+
+          def handler(event, context):
+              try:
+                  method = event['requestContext']['http']['method']
+                  body = json.loads(event['body']) if 'body' in event and event['body'] else {}
+                  query = event.get('queryStringParameters', {}) or {}
+
+                  if method == 'GET':
+                      if 'templateId' in query:
+                          response = table.get_item(Key={'TemplateId': query['templateId']})
+                          return {'statusCode': 200, 'body': json.dumps(response.get('Item', {}))}
+                      response = table.scan()
+                      return {'statusCode': 200, 'body': json.dumps(response.get('Items', []))}
+                  if method in ['POST', 'PUT']:
+                      item_id = body.get('id') or str(uuid.uuid4())
+                      body['TemplateId'] = item_id
+                      body['UpdatedAt'] = datetime.utcnow().isoformat()
+                      table.put_item(Item=body)
+                      return {'statusCode': 200, 'body': json.dumps(body)}
+                  if method == 'DELETE':
+                      table.delete_item(Key={'TemplateId': query.get('templateId')})
+                      return {'statusCode': 200, 'body': json.dumps({'message': 'Deleted'})}
+              except Exception as e:
+                  print(e)
+                  return {'statusCode': 500, 'body': json.dumps({'error': str(e)})}
+
+  CampaignsFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      Handler: index.handler
+      Runtime: python3.11
+      Timeout: 60
+      MemorySize: 256
+      Environment:
+        Variables:
+          TABLE_CAMPAIGNS: !Ref CampaignsTable
+          TABLE_CONTACTS: !Ref ContactsTable
+          QUEUE_URL: !Ref EmailQueue
+      Role: !GetAtt LambdaRole.Arn
+      Code:
+        ZipFile: |
+          import json, os, uuid, boto3
+          from boto3.dynamodb.conditions import Key
+          from datetime import datetime
+          from decimal import Decimal
+
+          dynamodb = boto3.resource('dynamodb')
+          sqs = boto3.client('sqs')
+          camp_table = dynamodb.Table(os.environ['TABLE_CAMPAIGNS'])
+          contact_table = dynamodb.Table(os.environ['TABLE_CONTACTS'])
+
+          class DecimalEncoder(json.JSONEncoder):
+              def default(self, o):
+                  if isinstance(o, Decimal): return int(o)
+                  return super(DecimalEncoder, self).default(o)
+
+          def handler(event, context):
+              try:
+                  method = event['requestContext']['http']['method']
+                  path = event['rawPath']
+                  body = json.loads(event['body']) if 'body' in event and event['body'] else {}
+                  query = event.get('queryStringParameters', {}) or {}
+
+                  # SEND
+                  if path.endswith('/send') and method == 'POST':
+                      campaign_id = body.get('campaignId')
+                      
+                      # === SMART ID CLEANING ===
+                      clean_id = "".join(c for c in campaign_id if c.isalnum() or c in "_-")
+                      
+                      camp_resp = camp_table.get_item(Key={'CampaignId': clean_id})
+                      campaign = camp_resp.get('Item')
+                      if not campaign: return {'statusCode': 404, 'body': 'Campaign not found'}
+
+                      count = 0
+                      last_key = None
+                      
+                      while True:
+                          scan_kwargs = {
+                              'IndexName': "ListIdIndex",
+                              'KeyConditionExpression': Key('ListId').eq(campaign['ListId'])
+                          }
+                          if last_key:
+                              scan_kwargs['ExclusiveStartKey'] = last_key
+                              
+                          contacts_resp = contact_table.query(**scan_kwargs)
+                          
+                          for contact in contacts_resp.get('Items', []):
+                              msg = {
+                                  'email': contact.get('Email'),
+                                  'name': contact.get('Name'),
+                                  'subject': campaign.get('Subject'),
+                                  'body': campaign.get('Body'),
+                                  'campaignId': clean_id,
+                                  'sender': campaign.get('SenderEmail')
+                              }
+                              sqs.send_message(QueueUrl=os.environ['QUEUE_URL'], MessageBody=json.dumps(msg))
+                              count += 1
+                          
+                          last_key = contacts_resp.get('LastEvaluatedKey')
+                          if not last_key:
+                              break
+                      
+                      camp_table.update_item(
+                          Key={'CampaignId': clean_id},
+                          UpdateExpression="set #s = :s, SentCount = :c",
+                          ExpressionAttributeNames={"#s": "Status"},
+                          ExpressionAttributeValues={":s": "Sent", ":c": count}
+                      )
+                      return {'statusCode': 200, 'body': json.dumps({'message': f"Queued {count} emails"})}
+
+                  # CRUD
+                  if method == 'GET':
+                      if 'campaignId' in query:
+                          # === SMART LOOKUP FIX ===
+                          # If frontend asks for "list.csv", we convert it to "listcsv" to find the data
+                          raw_id = query['campaignId']
+                          clean_id = "".join(c for c in raw_id if c.isalnum() or c in "_-")
+                          
+                          response = camp_table.get_item(Key={'CampaignId': clean_id})
+                          return {'statusCode': 200, 'body': json.dumps(response.get('Item', {}), cls=DecimalEncoder)}
+                      
+                      response = camp_table.scan()
+                      return {'statusCode': 200, 'body': json.dumps(response.get('Items', []), cls=DecimalEncoder)}
+
+                  if method in ['POST', 'PUT']:
+                      item_id = body.get('id') or str(uuid.uuid4())
+                      item = body
+                      item['CampaignId'] = item_id
+                      item['Status'] = body.get('status', 'Draft')
+                      
+                      for key in ['OpenCount', 'ClickCount', 'BounceCount', 'SentCount', 'ComplaintCount']:
+                          if key not in item: item[key] = 0
+                      
+                      item['UpdatedAt'] = datetime.utcnow().isoformat()
+                      camp_table.put_item(Item=item)
+                      return {'statusCode': 200, 'body': json.dumps(item, cls=DecimalEncoder)}
+
+                  if method == 'DELETE':
+                      # Cleanup: try deleting both raw and clean just in case
+                      raw_id = query.get('campaignId')
+                      clean_id = "".join(c for c in raw_id if c.isalnum() or c in "_-")
+                      camp_table.delete_item(Key={'CampaignId': raw_id})
+                      if raw_id != clean_id:
+                          camp_table.delete_item(Key={'CampaignId': clean_id})
+                      return {'statusCode': 200, 'body': json.dumps({'message': 'Deleted'})}
+              except Exception as e:
+                  print(f"Error: {e}")
+                  return {'statusCode': 500, 'body': json.dumps({'error': str(e)})}
+
+  DomainsFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      Handler: index.handler
+      Runtime: python3.11
+      Timeout: 30
+      MemorySize: 128
+      Role: !GetAtt LambdaRole.Arn
+      Code:
+        ZipFile: |
+          import json, boto3
+          ses = boto3.client('ses')
+
+          def handler(event, context):
+              try:
+                  method = event['requestContext']['http']['method']
+                  body = json.loads(event['body']) if 'body' in event and event['body'] else {}
+                  query = event.get('queryStringParameters', {}) or {}
+
+                  if method == 'GET':
+                      list_resp = ses.list_identities()
+                      identities = list_resp.get('Identities', [])
+                      if not identities: return {'statusCode': 200, 'body': json.dumps([])}
+                      attrs = ses.get_identity_verification_attributes(Identities=identities)
+                      results = []
+                      for identity in identities:
+                          attr = attrs['VerificationAttributes'].get(identity, {})
+                          results.append({
+                              'identity': identity,
+                              'status': attr.get('VerificationStatus', 'Unknown'),
+                              'token': attr.get('VerificationToken')
+                          })
+                      return {'statusCode': 200, 'body': json.dumps(results)}
+                  if method == 'POST':
+                      identity = body.get('identity')
+                      id_type = body.get('type')
+                      if id_type == 'domain':
+                          res = ses.verify_domain_identity(Domain=identity)
+                          return {'statusCode': 200, 'body': json.dumps({'token': res['VerificationToken']})}
+                      else:
+                          ses.verify_email_identity(EmailAddress=identity)
+                          return {'statusCode': 200, 'body': json.dumps({'message': "Verification email sent"})}
+                  if method == 'DELETE':
+                      ses.delete_identity(Identity=query.get('identity'))
+                      return {'statusCode': 200, 'body': json.dumps({'message': "Deleted"})}
+              except Exception as e:
+                  print(e)
+                  return {'statusCode': 500, 'body': json.dumps({'error': str(e)})}
+
+  # ==================================================================================
+  # 5. LEGACY FUNCTIONS
+  # ==================================================================================
   GetBalanceFunction:
     Type: AWS::Lambda::Function
     Properties:
       Handler: index.handler
+      Runtime: python3.11
+      Timeout: 30
+      MemorySize: 128
+      Environment:
+        Variables:
+          TABLE_USERS: !Ref UsersTable
       Role: !GetAtt LambdaRole.Arn
-      Runtime: nodejs20.x
-      Environment: { Variables: { TABLE_NAME: !Ref UsersTable } }
       Code:
         ZipFile: |
-          const { DynamoDBClient } = require("@aws-sdk/client-dynamodb");
-          const { DynamoDBDocumentClient, GetCommand, PutCommand } = require("@aws-sdk/lib-dynamodb");
-          const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({}));
-          exports.handler = async () => {
-            const userId = "user_001";
-            const data = await ddb.send(new GetCommand({ TableName: process.env.TABLE_NAME, Key: { UserId: userId } }));
-            if (!data.Item) {
-              await ddb.send(new PutCommand({ TableName: process.env.TABLE_NAME, Item: { UserId: userId, Balance: 100 } }));
-              return { statusCode: 200, body: JSON.stringify({ balance: 100 }) };
-            }
-            return { statusCode: 200, body: JSON.stringify({ balance: data.Item.Balance }) };
-          };
+          import json, os, boto3
+          from decimal import Decimal
+          dynamodb = boto3.resource('dynamodb')
+          table = dynamodb.Table(os.environ['TABLE_USERS'])
+
+          def handler(event, context):
+              user_id = "user_001"
+              try:
+                  response = table.get_item(Key={'UserId': user_id})
+                  item = response.get('Item')
+                  if not item:
+                      table.put_item(Item={'UserId': user_id, 'Balance': 100})
+                      return {'statusCode': 200, 'body': json.dumps({'balance': 100})}
+                  return {'statusCode': 200, 'body': json.dumps({'balance': int(item['Balance'])})}
+              except Exception as e:
+                  print(e)
+                  return {'statusCode': 500, 'body': json.dumps({'error': str(e)})}
 
   GetUploadUrlFunction:
     Type: AWS::Lambda::Function
     Properties:
       Handler: index.handler
-      Role: !GetAtt LambdaRole.Arn
-      Runtime: nodejs20.x
+      Runtime: python3.11
+      Timeout: 30
+      MemorySize: 128
       Environment:
-        Variables: { BUCKET_NAME: !Ref UploadBucket, CAMPAIGN_TABLE: !Ref CampaignsTable }
+        Variables:
+          TABLE_CAMPAIGNS: !Ref CampaignsTable
+          BUCKET_NAME: !Ref UploadBucket
+      Role: !GetAtt LambdaRole.Arn
       Code:
         ZipFile: |
-          const { S3Client, PutObjectCommand } = require("@aws-sdk/client-s3");
-          const { getSignedUrl } = require("@aws-sdk/s3-request-presigner");
-          const { DynamoDBClient } = require("@aws-sdk/client-dynamodb");
-          const { DynamoDBDocumentClient, PutCommand } = require("@aws-sdk/lib-dynamodb");
-          const s3 = new S3Client({});
-          const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({}));
-          exports.handler = async (event) => {
-            const body = JSON.parse(event.body);
-            // Initialize Campaign Stats to 0
-            await ddb.send(new PutCommand({
-              TableName: process.env.CAMPAIGN_TABLE,
-              Item: { 
-                FileName: body.fileName,
-                Subject: body.subject,
-                Body: body.body,
-                SentCount: 0, OpenCount: 0, ClickCount: 0, BounceCount: 0
-              }
-            }));
-            const command = new PutObjectCommand({ Bucket: process.env.BUCKET_NAME, Key: body.fileName, ContentType: "text/csv" });
-            const url = await getSignedUrl(s3, command, { expiresIn: 300 });
-            return { statusCode: 200, body: JSON.stringify({ uploadURL: url }) };
-          };
+          import json, os, boto3
+          from datetime import datetime
+
+          s3 = boto3.client('s3')
+          dynamodb = boto3.resource('dynamodb')
+          table = dynamodb.Table(os.environ['TABLE_CAMPAIGNS'])
+
+          def handler(event, context):
+              try:
+                  body = json.loads(event['body'])
+                  file_name = body['fileName']
+                  
+                  # Clean ID: removes dots for DB/SES
+                  clean_id = "".join(c for c in file_name if c.isalnum() or c in "_-")
+
+                  table.put_item(Item={
+                      'CampaignId': clean_id,
+                      'OriginalFileName': file_name,
+                      'Subject': body.get('subject'),
+                      'Body': body.get('body'),
+                      'SenderEmail': body.get('senderEmail'),
+                      'Status': 'Initializing...',
+                      'OpenCount': 0, 'ClickCount': 0, 'BounceCount': 0, 'SentCount': 0, 'ComplaintCount': 0,
+                      'CreatedAt': datetime.utcnow().isoformat()
+                  })
+
+                  url = s3.generate_presigned_url(
+                      'put_object',
+                      Params={'Bucket': os.environ['BUCKET_NAME'], 'Key': file_name, 'ContentType': 'text/csv'},
+                      ExpiresIn=300
+                  )
+                  
+                  return {'statusCode': 200, 'body': json.dumps({'uploadURL': url, 'campaignId': clean_id})}
+              except Exception as e:
+                  print(e)
+                  return {'statusCode': 500, 'body': json.dumps({'error': str(e)})}
 
   ProcessCsvFunction:
     Type: AWS::Lambda::Function
     Properties:
       Handler: index.handler
-      Role: !GetAtt LambdaRole.Arn
-      Runtime: nodejs20.x
-      Timeout: 60
+      Runtime: python3.11
+      Timeout: 120
+      MemorySize: 256
       Environment:
-        Variables: { QUEUE_URL: !Ref EmailQueue, CAMPAIGN_TABLE: !Ref CampaignsTable }
+        Variables:
+          TABLE_CAMPAIGNS: !Ref CampaignsTable
+          QUEUE_URL: !Ref EmailQueue
+      Role: !GetAtt LambdaRole.Arn
       Code:
         ZipFile: |
-          const { S3Client, GetObjectCommand } = require("@aws-sdk/client-s3");
-          const { SQSClient, SendMessageCommand } = require("@aws-sdk/client-sqs");
-          const { DynamoDBClient } = require("@aws-sdk/client-dynamodb");
-          const { DynamoDBDocumentClient, GetCommand } = require("@aws-sdk/lib-dynamodb");
-          const s3 = new S3Client({});
-          const sqs = new SQSClient({});
-          const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({}));
-          exports.handler = async (event) => {
-            const bucket = event.Records[0].s3.bucket.name;
-            const key = decodeURIComponent(event.Records[0].s3.object.key.replace(/\+/g, ' '));
-            const camp = await ddb.send(new GetCommand({ TableName: process.env.CAMPAIGN_TABLE, Key: { FileName: key } }));
-            const { Subject, Body } = camp.Item || { Subject: "No Subject", Body: "Hello" };
-            const { Body: s3Body } = await s3.send(new GetObjectCommand({ Bucket: bucket, Key: key }));
-            const csvContent = await s3Body.transformToString();
-            const rows = csvContent.split(/\r?\n/);
-            for (let row of rows) {
-              if (!row.trim()) continue;
-              const [email, name] = row.split(',');
-              if(email && email.includes('@')) {
-                 let personalBody = Body.replace(/{{name}}/g, name ? name.trim() : 'Friend');
-                 let personalSubject = Subject.replace(/{{name}}/g, name ? name.trim() : 'Friend');
-                 // Pass the Campaign ID (filename) to the queue so the Sender knows it
-                 await sqs.send(new SendMessageCommand({
-                   QueueUrl: process.env.QUEUE_URL,
-                   MessageBody: JSON.stringify({ email: email.trim(), subject: personalSubject, body: personalBody, campaignId: key })
-                 }));
-              }
-            }
-          };
+          import json, os, boto3, urllib.parse, csv, io
 
+          s3 = boto3.client('s3')
+          sqs = boto3.client('sqs')
+          dynamodb = boto3.resource('dynamodb')
+          table = dynamodb.Table(os.environ['TABLE_CAMPAIGNS'])
+
+          def handler(event, context):
+              clean_id = "unknown"
+              try:
+                  bucket = event['Records'][0]['s3']['bucket']['name']
+                  key = urllib.parse.unquote_plus(event['Records'][0]['s3']['object']['key'])
+                  
+                  # Derive clean ID from S3 key (must match GetUploadUrl)
+                  clean_id = "".join(c for c in key if c.isalnum() or c in "_-")
+                  
+                  table.update_item(
+                      Key={'CampaignId': clean_id},
+                      UpdateExpression="set #s = :s",
+                      ExpressionAttributeNames={"#s": "Status"},
+                      ExpressionAttributeValues={":s": "Processing CSV..."}
+                  )
+                  
+                  resp = table.get_item(Key={'CampaignId': clean_id})
+                  camp = resp.get('Item', {})
+                  subject_tmpl = camp.get('Subject', 'No Subject')
+                  body_tmpl = camp.get('Body', 'Hello')
+                  sender_email = camp.get('SenderEmail', 'noreply@example.com')
+
+                  obj = s3.get_object(Bucket=bucket, Key=key)
+                  
+                  # Use utf-8-sig to handle Excel CSV BOM
+                  content = obj['Body'].read().decode('utf-8-sig')
+                  f = io.StringIO(content)
+                  reader = csv.reader(f)
+
+                  count = 0
+                  for parts in reader:
+                      if not parts: continue
+                      email = parts[0].strip()
+                      if len(email) < 5 or '@' not in email: continue
+
+                      name = parts[1].strip() if len(parts) > 1 else 'Friend'
+                      
+                      p_body = body_tmpl.replace('{{name}}', name)
+                      p_subj = subject_tmpl.replace('{{name}}', name)
+                      
+                      sqs.send_message(
+                          QueueUrl=os.environ['QUEUE_URL'],
+                          MessageBody=json.dumps({
+                              'email': email,
+                              'subject': p_subj,
+                              'body': p_body,
+                              'campaignId': clean_id,
+                              'sender': sender_email
+                          })
+                      )
+                      count += 1
+                  
+                  table.update_item(
+                      Key={'CampaignId': clean_id},
+                      UpdateExpression="set #s = :s, SentCount = :c",
+                      ExpressionAttributeNames={"#s": "Status"},
+                      ExpressionAttributeValues={":s": "Sent", ":c": count}
+                  )
+              except Exception as e:
+                  print(f"Error processing CSV: {e}")
+                  # Try to log error to DB
+                  try:
+                      table.update_item(
+                          Key={'CampaignId': clean_id},
+                          UpdateExpression="set #s = :err",
+                          ExpressionAttributeNames={"#s": "Status"},
+                          ExpressionAttributeValues={":err": f"Error: {str(e)[:100]}"}
+                      )
+                  except: pass
+                  raise e
+
+  # ==================================================================================
+  # 6. WORKER LAMBDAS
+  # ==================================================================================
   SendEmailFunction:
     Type: AWS::Lambda::Function
     Properties:
       Handler: index.handler
-      Role: !GetAtt LambdaRole.Arn
-      Runtime: nodejs20.x
+      Runtime: python3.11
+      Timeout: 30
+      MemorySize: 128
       Environment:
-        Variables: { TABLE_NAME: !Ref UsersTable, SENDER_EMAIL: !Ref SenderEmail, CONFIG_SET: !Ref SesConfigSet }
+        Variables:
+          TABLE_USERS: !Ref UsersTable
+          CONFIG_SET: !Ref SesConfigSet
+      Role: !GetAtt LambdaRole.Arn
       Code:
         ZipFile: |
-          const { DynamoDBClient } = require("@aws-sdk/client-dynamodb");
-          const { DynamoDBDocumentClient, UpdateCommand } = require("@aws-sdk/lib-dynamodb");
-          const { SESClient, SendEmailCommand } = require("@aws-sdk/client-ses");
-          const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({}));
-          const ses = new SESClient({});
-          exports.handler = async (event) => {
-            const userId = "user_001"; 
-            for (const record of event.Records) {
-              const { email, subject, body, campaignId } = JSON.parse(record.body);
-              try {
-                await ddb.send(new UpdateCommand({
-                  TableName: process.env.TABLE_NAME,
-                  Key: { UserId: userId },
-                  UpdateExpression: "set Balance = Balance - :val",
-                  ConditionExpression: "Balance >= :val",
-                  ExpressionAttributeValues: { ":val": 1 }
-                }));
-                
-                await ses.send(new SendEmailCommand({
-                  Source: process.env.SENDER_EMAIL,
-                  Destination: { ToAddresses: [email] },
-                  Message: { Subject: { Data: subject }, Body: { Html: { Data: body } } }, // Changed to HTML for tracking!
-                  ConfigurationSetName: process.env.CONFIG_SET, // <--- CRITICAL: Enables Tracking
-                  Tags: [{ Name: 'CampaignId', Value: campaignId }] // <--- CRITICAL: Links event to Campaign
-                }));
-              } catch (err) { console.log("Failed:", err.message); }
-            }
-          };
+          import json, os, boto3
 
-  SqsEventSource: { Type: AWS::Lambda::EventSourceMapping, Properties: { BatchSize: 1, EventSourceArn: !GetAtt EmailQueue.Arn, FunctionName: !Ref SendEmailFunction } }
+          ses = boto3.client('ses')
+          dynamodb = boto3.resource('dynamodb')
+          table = dynamodb.Table(os.environ['TABLE_USERS'])
+
+          def handler(event, context):
+              user_id = "user_001"
+              batch_failures = []
+              
+              for record in event['Records']:
+                  try:
+                      msg = json.loads(record['body'])
+                      email = msg.get('email')
+                      subject = msg.get('subject')
+                      body = msg.get('body')
+                      
+                      if not email: continue
+
+                      # Use clean ID for tagging
+                      raw_camp_id = msg.get('campaignId', 'unknown')
+                      campaign_id = "".join(c for c in raw_camp_id if c.isalnum() or c in "_-")
+                      
+                      sender = msg.get('sender') or os.environ.get('SENDER_EMAIL') or "noreply@example.com"
+
+                      try:
+                          table.update_item(
+                              Key={'UserId': user_id},
+                              UpdateExpression="set Balance = Balance - :val",
+                              ConditionExpression="Balance >= :val",
+                              ExpressionAttributeValues={':val': 1}
+                          )
+                      except:
+                          print("Insufficient balance")
+                          batch_failures.append({"itemIdentifier": record['messageId']})
+                          continue
+                      
+                      ses.send_email(
+                          Source=sender,
+                          Destination={'ToAddresses': [email]},
+                          Message={
+                              'Subject': {'Data': subject},
+                              'Body': {'Html': {'Data': body}}
+                          },
+                          ConfigurationSetName=os.environ['CONFIG_SET'],
+                          Tags=[{'Name': 'CampaignId', 'Value': campaign_id}]
+                      )
+                  except Exception as e:
+                      print(f"Failed to send: {e}")
+                      batch_failures.append({"itemIdentifier": record['messageId']})
+              
+              return {'batchItemFailures': batch_failures}
+
+  SqsEventSource:
+    Type: AWS::Lambda::EventSourceMapping
+    Properties: 
+      BatchSize: 10
+      EventSourceArn: !GetAtt EmailQueue.Arn
+      FunctionName: !Ref SendEmailFunction
+      FunctionResponseTypes: ["ReportBatchItemFailures"]
+
+  TrackerFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      Handler: index.handler
+      Runtime: python3.11
+      Timeout: 30
+      MemorySize: 128
+      Environment:
+        Variables:
+          TABLE_CAMPAIGNS: !Ref CampaignsTable
+      Role: !GetAtt LambdaRole.Arn
+      Code:
+        ZipFile: |
+          import json, os, boto3
+
+          dynamodb = boto3.resource('dynamodb')
+          table = dynamodb.Table(os.environ['TABLE_CAMPAIGNS'])
+
+          def handler(event, context):
+              for record in event['Records']:
+                  try:
+                      sns_msg = record['Sns']['Message']
+                      ses_msg = json.loads(sns_msg)
+                      
+                      evt_type = ses_msg.get('eventType')
+                      tags = ses_msg.get('mail', {}).get('tags', {})
+                      
+                      c_list = tags.get('CampaignId', [])
+                      campaign_id = c_list[0] if c_list else None
+
+                      if not campaign_id: continue
+
+                      attr_name = ""
+                      if evt_type == 'Open': attr_name = "OpenCount"
+                      elif evt_type == 'Click': attr_name = "ClickCount"
+                      elif evt_type == 'Bounce': attr_name = "BounceCount"
+                      elif evt_type == 'Complaint': attr_name = "ComplaintCount"
+                      elif evt_type == 'Reject': attr_name = "BounceCount"
+
+                      if attr_name:
+                          # campaign_id from SES is already clean (no dots), so it matches DB key
+                          table.update_item(
+                              Key={'CampaignId': campaign_id},
+                              UpdateExpression=f"ADD {attr_name} :inc",
+                              ExpressionAttributeValues={':inc': 1}
+                          )
+                  except Exception as e:
+                      print(f"TRACKER ERROR: {e}")
+
+  TrackerSubscription:
+    Type: AWS::Lambda::Permission
+    Properties: { Action: lambda:InvokeFunction, FunctionName: !Ref TrackerFunction, Principal: sns.amazonaws.com, SourceArn: !Ref TrackingTopic }
+
+  SnsSubscription:
+    Type: AWS::SNS::Subscription
+    Properties: { Endpoint: !GetAtt TrackerFunction.Arn, Protocol: lambda, TopicArn: !Ref TrackingTopic }
+  
   S3BucketPermission: { Type: AWS::Lambda::Permission, Properties: { Action: lambda:InvokeFunction, FunctionName: !Ref ProcessCsvFunction, Principal: s3.amazonaws.com, SourceAccount: !Ref "AWS::AccountId" } }
 
-  # ---------------------------------------------------------
-  # 8. API Gateway (Added /stats endpoint)
-  # ---------------------------------------------------------
+  # ==================================================================================
+  # 7. API GATEWAY
+  # ==================================================================================
   HttpApi:
     Type: AWS::ApiGatewayV2::Api
-    Properties: { Name: SesV3_API, ProtocolType: HTTP, CorsConfiguration: { AllowOrigins: ["*"], AllowMethods: ["POST", "GET"], AllowHeaders: ["*"] } }
+    Properties: { Name: SesApp_API_V5_Flat, ProtocolType: HTTP, CorsConfiguration: { AllowOrigins: ["*"], AllowMethods: ["*"], AllowHeaders: ["*"] } }
+  
   ApiStage:
     Type: AWS::ApiGatewayV2::Stage
     Properties: { ApiId: !Ref HttpApi, StageName: prod, AutoDeploy: true }
 
-  # New Lambda to Read Stats
-  GetStatsFunction:
-    Type: AWS::Lambda::Function
-    Properties:
-      Handler: index.handler
-      Role: !GetAtt LambdaRole.Arn
-      Runtime: nodejs20.x
-      Environment: { Variables: { CAMPAIGN_TABLE: !Ref CampaignsTable } }
-      Code:
-        ZipFile: |
-          const { DynamoDBClient } = require("@aws-sdk/client-dynamodb");
-          const { DynamoDBDocumentClient, GetCommand } = require("@aws-sdk/lib-dynamodb");
-          const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({}));
-          exports.handler = async (event) => {
-            const fileName = event.queryStringParameters.fileName;
-            const data = await ddb.send(new GetCommand({ TableName: process.env.CAMPAIGN_TABLE, Key: { FileName: fileName } }));
-            return { statusCode: 200, body: JSON.stringify(data.Item || {}) };
-          };
+  IntContacts: { Type: AWS::ApiGatewayV2::Integration, Properties: { ApiId: !Ref HttpApi, IntegrationType: AWS_PROXY, IntegrationUri: !GetAtt ContactsFunction.Arn, PayloadFormatVersion: "2.0" } }
+  IntLists: { Type: AWS::ApiGatewayV2::Integration, Properties: { ApiId: !Ref HttpApi, IntegrationType: AWS_PROXY, IntegrationUri: !GetAtt ListsFunction.Arn, PayloadFormatVersion: "2.0" } }
+  IntTemplates: { Type: AWS::ApiGatewayV2::Integration, Properties: { ApiId: !Ref HttpApi, IntegrationType: AWS_PROXY, IntegrationUri: !GetAtt TemplatesFunction.Arn, PayloadFormatVersion: "2.0" } }
+  IntCampaigns: { Type: AWS::ApiGatewayV2::Integration, Properties: { ApiId: !Ref HttpApi, IntegrationType: AWS_PROXY, IntegrationUri: !GetAtt CampaignsFunction.Arn, PayloadFormatVersion: "2.0" } }
+  IntDomains: { Type: AWS::ApiGatewayV2::Integration, Properties: { ApiId: !Ref HttpApi, IntegrationType: AWS_PROXY, IntegrationUri: !GetAtt DomainsFunction.Arn, PayloadFormatVersion: "2.0" } }
+  IntUpload: { Type: AWS::ApiGatewayV2::Integration, Properties: { ApiId: !Ref HttpApi, IntegrationType: AWS_PROXY, IntegrationUri: !GetAtt GetUploadUrlFunction.Arn, PayloadFormatVersion: "2.0" } }
+  IntBalance: { Type: AWS::ApiGatewayV2::Integration, Properties: { ApiId: !Ref HttpApi, IntegrationType: AWS_PROXY, IntegrationUri: !GetAtt GetBalanceFunction.Arn, PayloadFormatVersion: "2.0" } }
 
-  # Routes
-  Route1: { Type: AWS::ApiGatewayV2::Route, Properties: { ApiId: !Ref HttpApi, RouteKey: "POST /upload", Target: !Join [ "/", [ "integrations", !Ref UploadIntegration ] ] } }
-  Route2: { Type: AWS::ApiGatewayV2::Route, Properties: { ApiId: !Ref HttpApi, RouteKey: "GET /balance", Target: !Join [ "/", [ "integrations", !Ref BalanceIntegration ] ] } }
-  Route3: { Type: AWS::ApiGatewayV2::Route, Properties: { ApiId: !Ref HttpApi, RouteKey: "GET /stats", Target: !Join [ "/", [ "integrations", !Ref StatsIntegration ] ] } }
+  RouteContacts: { Type: AWS::ApiGatewayV2::Route, Properties: { ApiId: !Ref HttpApi, RouteKey: "ANY /contacts", Target: !Join [ "/", [ "integrations", !Ref IntContacts ] ] } }
+  RouteLists: { Type: AWS::ApiGatewayV2::Route, Properties: { ApiId: !Ref HttpApi, RouteKey: "ANY /lists", Target: !Join [ "/", [ "integrations", !Ref IntLists ] ] } }
+  RouteTemplates: { Type: AWS::ApiGatewayV2::Route, Properties: { ApiId: !Ref HttpApi, RouteKey: "ANY /templates", Target: !Join [ "/", [ "integrations", !Ref IntTemplates ] ] } }
+  RouteCampaigns: { Type: AWS::ApiGatewayV2::Route, Properties: { ApiId: !Ref HttpApi, RouteKey: "ANY /campaigns", Target: !Join [ "/", [ "integrations", !Ref IntCampaigns ] ] } }
+  RouteCampaignSend: { Type: AWS::ApiGatewayV2::Route, Properties: { ApiId: !Ref HttpApi, RouteKey: "POST /campaigns/send", Target: !Join [ "/", [ "integrations", !Ref IntCampaigns ] ] } }
+  RouteDomains: { Type: AWS::ApiGatewayV2::Route, Properties: { ApiId: !Ref HttpApi, RouteKey: "ANY /domains", Target: !Join [ "/", [ "integrations", !Ref IntDomains ] ] } }
+  RouteUpload: { Type: AWS::ApiGatewayV2::Route, Properties: { ApiId: !Ref HttpApi, RouteKey: "POST /upload", Target: !Join [ "/", [ "integrations", !Ref IntUpload ] ] } }
+  RouteBalance: { Type: AWS::ApiGatewayV2::Route, Properties: { ApiId: !Ref HttpApi, RouteKey: "GET /balance", Target: !Join [ "/", [ "integrations", !Ref IntBalance ] ] } }
 
-  # Integrations
-  UploadIntegration: { Type: AWS::ApiGatewayV2::Integration, Properties: { ApiId: !Ref HttpApi, IntegrationType: AWS_PROXY, IntegrationUri: !GetAtt GetUploadUrlFunction.Arn, PayloadFormatVersion: "2.0" } }
-  BalanceIntegration: { Type: AWS::ApiGatewayV2::Integration, Properties: { ApiId: !Ref HttpApi, IntegrationType: AWS_PROXY, IntegrationUri: !GetAtt GetBalanceFunction.Arn, PayloadFormatVersion: "2.0" } }
-  StatsIntegration: { Type: AWS::ApiGatewayV2::Integration, Properties: { ApiId: !Ref HttpApi, IntegrationType: AWS_PROXY, IntegrationUri: !GetAtt GetStatsFunction.Arn, PayloadFormatVersion: "2.0" } }
-
-  # API Permissions
-  ApiPerm1: { Type: AWS::Lambda::Permission, Properties: { Action: lambda:InvokeFunction, FunctionName: !Ref GetUploadUrlFunction, Principal: apigateway.amazonaws.com } }
-  ApiPerm2: { Type: AWS::Lambda::Permission, Properties: { Action: lambda:InvokeFunction, FunctionName: !Ref GetBalanceFunction, Principal: apigateway.amazonaws.com } }
-  ApiPerm3: { Type: AWS::Lambda::Permission, Properties: { Action: lambda:InvokeFunction, FunctionName: !Ref GetStatsFunction, Principal: apigateway.amazonaws.com } }
+  PermContacts: { Type: AWS::Lambda::Permission, Properties: { Action: lambda:InvokeFunction, FunctionName: !Ref ContactsFunction, Principal: apigateway.amazonaws.com } }
+  PermLists: { Type: AWS::Lambda::Permission, Properties: { Action: lambda:InvokeFunction, FunctionName: !Ref ListsFunction, Principal: apigateway.amazonaws.com } }
+  PermTemplates: { Type: AWS::Lambda::Permission, Properties: { Action: lambda:InvokeFunction, FunctionName: !Ref TemplatesFunction, Principal: apigateway.amazonaws.com } }
+  PermCampaigns: { Type: AWS::Lambda::Permission, Properties: { Action: lambda:InvokeFunction, FunctionName: !Ref CampaignsFunction, Principal: apigateway.amazonaws.com } }
+  PermDomains: { Type: AWS::Lambda::Permission, Properties: { Action: lambda:InvokeFunction, FunctionName: !Ref DomainsFunction, Principal: apigateway.amazonaws.com } }
+  PermUpload: { Type: AWS::Lambda::Permission, Properties: { Action: lambda:InvokeFunction, FunctionName: !Ref GetUploadUrlFunction, Principal: apigateway.amazonaws.com } }
+  PermBalance: { Type: AWS::Lambda::Permission, Properties: { Action: lambda:InvokeFunction, FunctionName: !Ref GetBalanceFunction, Principal: apigateway.amazonaws.com } }
 
 Outputs:
   ApiUrl:

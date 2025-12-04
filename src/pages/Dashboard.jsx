@@ -19,9 +19,9 @@ const Dashboard = () => {
             const bal = await api.getBalance();
             setBalance(bal);
 
-            // Load campaigns from localStorage
-            const savedCampaigns = JSON.parse(localStorage.getItem('campaigns') || '[]');
-            setCampaigns(savedCampaigns);
+            // Load campaigns from API
+            const campaignsData = await api.getCampaigns();
+            setCampaigns(campaignsData);
         } catch (error) {
             console.error('Failed to load data:', error);
             setBalance(100); // Fallback
