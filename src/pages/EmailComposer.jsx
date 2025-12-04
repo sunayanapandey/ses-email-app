@@ -11,10 +11,7 @@ const EmailComposer = () => {
     const [showSaveModal, setShowSaveModal] = useState(false);
     const [newTemplateName, setNewTemplateName] = useState('');
     const [editingTemplateId, setEditingTemplateId] = useState(null);
-    const [templates, setTemplates] = useState([
-        { id: 1, name: 'Welcome Email', content: '<h1>Welcome {{name}}!</h1><p>Thanks for joining us.</p>', isSystem: true },
-        { id: 2, name: 'Newsletter', content: '<h1>Weekly Update</h1><p>Here is the latest news.</p>', isSystem: true },
-    ]);
+    const [templates, setTemplates] = useState([]);
 
     // Campaign state
     const [csvFile, setCsvFile] = useState(null);
@@ -35,6 +32,9 @@ const EmailComposer = () => {
 
         // Load verified emails from domains
         loadVerifiedEmails();
+
+        // Load templates from DynamoDB
+        loadTemplates();
     }, []);
 
     const loadVerifiedEmails = async () => {
@@ -52,38 +52,88 @@ const EmailComposer = () => {
         }
     };
 
-    const handleSaveTemplate = () => {
-        if (newTemplateName.trim()) {
-            if (editingTemplateId) {
-                // Find the template being edited
-                const templateToEdit = templates.find(t => t.id === editingTemplateId);
+    const loadTemplates = async () => {
+        try {
+            const templatesData = await api.getTemplates();
 
-                // If it's a system template, force create new (Save As)
-                if (templateToEdit && templateToEdit.isSystem) {
-                    setTemplates([...templates, {
-                        id: Date.now(),
+            // If no templates exist, initialize with system templates
+            if (templatesData.length === 0) {
+                await initializeSystemTemplates();
+            } else {
+                setTemplates(templatesData);
+            }
+        } catch (error) {
+            console.error('Error loading templates:', error);
+            // Fallback to default system templates in state only
+            setTemplates([
+                { id: 'welcome-temp', name: 'Welcome Email', content: '<h1>Welcome {{name}}!</h1><p>Thanks for joining us.</p>', isSystem: true },
+                { id: 'newsletter-temp', name: 'Newsletter', content: '<h1>Weekly Update</h1><p>Here is the latest news.</p>', isSystem: true },
+            ]);
+        }
+    };
+
+    const initializeSystemTemplates = async () => {
+        const systemTemplates = [
+            { id: 'welcome-email', name: 'Welcome Email', content: '<h1>Welcome {{name}}!</h1><p>Thanks for joining us.</p>', isSystem: true },
+            { id: 'newsletter', name: 'Newsletter', content: '<h1>Weekly Update</h1><p>Here is the latest news.</p>', isSystem: true },
+            { id: 'promo-email', name: 'Promotional Email', content: '<h1>Special Offer for {{name}}!</h1><p>Check out our latest deals.</p>', isSystem: true },
+        ];
+
+        for (const template of systemTemplates) {
+            try {
+                await api.saveTemplate(template);
+            } catch (error) {
+                console.error('Error initializing system template:', error);
+            }
+        }
+
+        // Reload templates after initialization
+        const templatesData = await api.getTemplates();
+        setTemplates(templatesData);
+    };
+
+    const handleSaveTemplate = async () => {
+        if (newTemplateName.trim()) {
+            try {
+                if (editingTemplateId) {
+                    const templateToEdit = templates.find(t => t.id === editingTemplateId);
+
+                    if (templateToEdit && templateToEdit.isSystem) {
+                        // Save As: Create new template
+                        const newTemplate = await api.saveTemplate({
+                            name: newTemplateName,
+                            content,
+                            isSystem: false
+                        });
+                        setTemplates([...templates, newTemplate]);
+                    } else {
+                        // Update existing user template
+                        const updatedTemplate = await api.saveTemplate({
+                            id: editingTemplateId,
+                            name: newTemplateName,
+                            content,
+                            isSystem: false
+                        });
+                        setTemplates(templates.map(t =>
+                            t.id === editingTemplateId ? updatedTemplate : t
+                        ));
+                    }
+                    setEditingTemplateId(null);
+                } else {
+                    // Create new template
+                    const newTemplate = await api.saveTemplate({
                         name: newTemplateName,
                         content,
                         isSystem: false
-                    }]);
-                } else {
-                    // Update existing user template
-                    setTemplates(templates.map(t =>
-                        t.id === editingTemplateId ? { ...t, name: newTemplateName, content } : t
-                    ));
+                    });
+                    setTemplates([...templates, newTemplate]);
                 }
-                setEditingTemplateId(null);
-            } else {
-                // Create new template
-                setTemplates([...templates, {
-                    id: Date.now(),
-                    name: newTemplateName,
-                    content,
-                    isSystem: false
-                }]);
+                setNewTemplateName('');
+                setShowSaveModal(false);
+            } catch (error) {
+                console.error('Error saving template:', error);
+                alert('Failed to save template. Please try again.');
             }
-            setNewTemplateName('');
-            setShowSaveModal(false);
         }
     };
 
@@ -101,7 +151,7 @@ const EmailComposer = () => {
         setShowSaveModal(true);
     };
 
-    const deleteTemplate = (templateId, e) => {
+    const deleteTemplate = async (templateId, e) => {
         e.stopPropagation();
         const template = templates.find(t => t.id === templateId);
         if (template && template.isSystem) {
@@ -109,7 +159,13 @@ const EmailComposer = () => {
             return;
         }
         if (confirm('Are you sure you want to delete this template?')) {
-            setTemplates(templates.filter(t => t.id !== templateId));
+            try {
+                await api.deleteTemplate(templateId);
+                setTemplates(templates.filter(t => t.id !== templateId));
+            } catch (error) {
+                console.error('Error deleting template:', error);
+                alert('Failed to delete template. Please try again.');
+            }
         }
     };
 

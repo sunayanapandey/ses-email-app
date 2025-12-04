@@ -125,6 +125,72 @@ export const api = {
         }
     },
 
+    // ========== Template Management (Real API) ==========
+
+    // Get all templates
+    getTemplates: async () => {
+        try {
+            const response = await fetch(`${BASE_URL}/templates`);
+            if (!response.ok) throw new Error('Failed to fetch templates');
+            const data = await response.json();
+
+            return data.map(template => ({
+                id: template.TemplateId,
+                name: template.name || template.Name,
+                content: template.content || template.Content,
+                isSystem: template.isSystem || template.IsSystem || false,
+                createdAt: template.UpdatedAt || template.CreatedAt
+            }));
+        } catch (error) {
+            console.error('Error fetching templates:', error);
+            return [];
+        }
+    },
+
+    // Save or update template
+    saveTemplate: async (template) => {
+        try {
+            const response = await fetch(`${BASE_URL}/templates`, {
+                method: template.id ? 'PUT' : 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    id: template.id,
+                    name: template.name,
+                    content: template.content,
+                    isSystem: template.isSystem || false
+                })
+            });
+
+            if (!response.ok) throw new Error('Failed to save template');
+            const data = await response.json();
+
+            return {
+                id: data.TemplateId,
+                name: data.name,
+                content: data.content,
+                isSystem: data.isSystem || false
+            };
+        } catch (error) {
+            console.error('Error saving template:', error);
+            throw error;
+        }
+    },
+
+    // Delete template
+    deleteTemplate: async (templateId) => {
+        try {
+            const response = await fetch(`${BASE_URL}/templates?templateId=${encodeURIComponent(templateId)}`, {
+                method: 'DELETE'
+            });
+
+            if (!response.ok) throw new Error('Failed to delete template');
+            return await response.json();
+        } catch (error) {
+            console.error('Error deleting template:', error);
+            throw error;
+        }
+    },
+
     // ========== Domain Management (Real API) ==========
 
     // Get all verified/pending SES domains and emails
