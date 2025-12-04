@@ -1,5 +1,5 @@
 // AWS SES API Service
-const BASE_URL = "https://knplqg2pue.execute-api.us-east-1.amazonaws.com/prod";
+const BASE_URL = "https://t4uuxnefal.execute-api.us-east-1.amazonaws.com/prod";
 
 export const api = {
     // ========== AWS API Endpoints ==========
@@ -17,7 +17,7 @@ export const api = {
     },
 
     // Get presigned S3 upload URL and initialize campaign
-    getUploadUrl: async (fileName, subject, body) => {
+    getUploadUrl: async (fileName, subject, body, senderEmail) => {
         try {
             const response = await fetch(`${BASE_URL}/upload`, {
                 method: 'POST',
@@ -28,6 +28,7 @@ export const api = {
                     fileName,
                     subject,
                     body,
+                    senderEmail,
                 }),
             });
             const data = await response.json();

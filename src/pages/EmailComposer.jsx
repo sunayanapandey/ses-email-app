@@ -25,10 +25,32 @@ const EmailComposer = () => {
     // Saved Lists State
     const [savedLists, setSavedLists] = useState([]);
 
+    // Sender Email State
+    const [verifiedEmails, setVerifiedEmails] = useState([]);
+    const [senderEmail, setSenderEmail] = useState('');
+
     useEffect(() => {
         const lists = JSON.parse(localStorage.getItem('savedContactLists') || '[]');
         setSavedLists(lists);
+
+        // Load verified emails from domains
+        loadVerifiedEmails();
     }, []);
+
+    const loadVerifiedEmails = async () => {
+        try {
+            const domains = await api.getDomains();
+            const verified = domains
+                .filter(d => d.status === 'success' || d.status === 'Success')
+                .map(d => d.domain);
+            setVerifiedEmails(verified);
+            if (verified.length > 0 && !senderEmail) {
+                setSenderEmail(verified[0]); // Set first verified email as default
+            }
+        } catch (error) {
+            console.error('Error loading verified emails:', error);
+        }
+    };
 
     const handleSaveTemplate = () => {
         if (newTemplateName.trim()) {
@@ -119,6 +141,10 @@ const EmailComposer = () => {
             alert('Please enter a campaign name');
             return;
         }
+        if (!senderEmail) {
+            alert('Please select a sender email');
+            return;
+        }
 
         setSending(true);
         setUploadStatus(null);
@@ -128,7 +154,7 @@ const EmailComposer = () => {
             const fileName = `${campaignName.replace(/[^a-zA-Z0-9]/g, '_')}_${Date.now()}.csv`;
 
             // Step 1: Get presigned upload URL and initialize campaign
-            const uploadUrl = await api.getUploadUrl(fileName, subject, content);
+            const uploadUrl = await api.getUploadUrl(fileName, subject, content, senderEmail);
 
             // Step 2: Upload CSV to S3
             const uploadSuccess = await api.uploadToS3(uploadUrl, csvFile);
@@ -269,6 +295,33 @@ const EmailComposer = () => {
                             placeholder="Campaign Name (e.g., 'Newsletter_Jan_2024')"
                             className="w-full text-lg font-medium placeholder-gray-400 outline-none"
                         />
+                    </div>
+
+                    {/* Sender Email Selector */}
+                    <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Sender Email
+                        </label>
+                        <select
+                            value={senderEmail}
+                            onChange={(e) => setSenderEmail(e.target.value)}
+                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none"
+                        >
+                            <option value="">Select sender email...</option>
+                            {verifiedEmails.map(email => (
+                                <option key={email} value={email}>{email}</option>
+                            ))}
+                        </select>
+                        {verifiedEmails.length === 0 && (
+                            <p className="text-xs text-red-600 mt-2">
+                                No verified emails found. Please verify an email in the Domains page first.
+                            </p>
+                        )}
+                        {verifiedEmails.length > 0 && (
+                            <p className="text-xs text-gray-500 mt-2">
+                                Emails will be sent from this address
+                            </p>
+                        )}
                     </div>
 
                     {/* Subject Line */}

@@ -57,8 +57,8 @@ const Sidebar = () => {
                             key={item.to}
                             to={item.to}
                             className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${active
-                                    ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200'
-                                    : 'text-gray-700 hover:bg-indigo-50 hover:text-indigo-600'
+                                ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200'
+                                : 'text-gray-700 hover:bg-indigo-50 hover:text-indigo-600'
                                 }`}
                         >
                             <Icon size={20} />
