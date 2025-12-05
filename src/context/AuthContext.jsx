@@ -1,30 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 
-// Mock user database
-const MOCK_USERS = [
-    {
-        id: 1,
-        email: 'admin@example.com',
-        password: 'admin123',
-        name: 'Admin User',
-        role: 'Admin'
-    },
-    {
-        id: 2,
-        email: 'manager@example.com',
-        password: 'manager123',
-        name: 'Manager User',
-        role: 'Manager'
-    },
-    {
-        id: 3,
-        email: 'viewer@example.com',
-        password: 'viewer123',
-        name: 'Viewer User',
-        role: 'Viewer'
-    }
-];
-
 const AuthContext = createContext(null);
 
 export const useAuth = () => {
@@ -36,75 +11,34 @@ export const useAuth = () => {
 };
 
 export const AuthProvider = ({ children }) => {
-    const [user, setUser] = useState(null);
-    const [loading, setLoading] = useState(true);
+    const [token, setToken] = useState(localStorage.getItem('auth_token'));
+    const [user, setUser] = useState(JSON.parse(localStorage.getItem('user') || 'null'));
+    const [loading, setLoading] = useState(false);
 
-    // Load auth state from localStorage on mount
-    useEffect(() => {
-        const storedUser = localStorage.getItem('authUser');
-        if (storedUser) {
-            try {
-                setUser(JSON.parse(storedUser));
-            } catch (error) {
-                console.error('Error loading auth state:', error);
-                localStorage.removeItem('authUser');
-            }
-        }
-        setLoading(false);
-    }, []);
-
-    const login = (email, password) => {
-        // Find user in mock database
-        const foundUser = MOCK_USERS.find(
-            u => u.email === email && u.password === password
-        );
-
-        if (foundUser) {
-            // Remove password from user object
-            const { password: _, ...userWithoutPassword } = foundUser;
-            setUser(userWithoutPassword);
-            localStorage.setItem('authUser', JSON.stringify(userWithoutPassword));
-            return { success: true };
-        }
-
-        return { success: false, error: 'Invalid email or password' };
-    };
-
-    const register = (email, password, name, role = 'Viewer') => {
-        // Check if user already exists
-        const existingUser = MOCK_USERS.find(u => u.email === email);
-        if (existingUser) {
-            return { success: false, error: 'User with this email already exists' };
-        }
-
-        // Create new user
-        const newUser = {
-            id: MOCK_USERS.length + 1,
-            email,
-            name,
-            role
-        };
-
-        // In a real app, this would be saved to a database
-        MOCK_USERS.push({ ...newUser, password });
-
-        // Auto-login after registration
-        setUser(newUser);
-        localStorage.setItem('authUser', JSON.stringify(newUser));
-        return { success: true };
+    const login = (accessToken, userEmail) => {
+        localStorage.setItem('auth_token', accessToken);
+        localStorage.setItem('user', JSON.stringify({ email: userEmail }));
+        setToken(accessToken);
+        setUser({ email: userEmail });
     };
 
     const logout = () => {
+        localStorage.removeItem('auth_token');
+        localStorage.removeItem('user');
+        setToken(null);
         setUser(null);
-        localStorage.removeItem('authUser');
+    };
+
+    const isAuthenticated = () => {
+        return !!token;
     };
 
     const value = {
         user,
-        isAuthenticated: !!user,
+        token,
+        isAuthenticated,
         loading,
         login,
-        register,
         logout
     };
 

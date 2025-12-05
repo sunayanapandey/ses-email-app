@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { api } from '../services/api';
 import { Mail, Lock, LogIn, AlertCircle } from 'lucide-react';
 
 const Login = () => {
@@ -27,16 +28,20 @@ const Login = () => {
             return;
         }
 
-        // Attempt login
-        const result = login(email, password);
+        try {
+            // Call API login
+            const data = await api.login(email, password);
 
-        if (result.success) {
+            // Store token via AuthContext
+            login(data.access_token, email);
+
+            // Navigate to dashboard
             navigate(from, { replace: true });
-        } else {
-            setError(result.error);
+        } catch (error) {
+            setError('Invalid credentials. Please try again.');
+        } finally {
+            setLoading(false);
         }
-
-        setLoading(false);
     };
 
     return (
@@ -130,16 +135,6 @@ const Login = () => {
                                 Sign up
                             </Link>
                         </p>
-                    </div>
-
-                    {/* Test Credentials */}
-                    <div className="mt-6 pt-6 border-t border-gray-200">
-                        <p className="text-xs text-gray-500 mb-2 font-semibold">Test Credentials:</p>
-                        <div className="space-y-1 text-xs text-gray-600">
-                            <p>👨‍💼 Admin: admin@example.com / admin123</p>
-                            <p>👔 Manager: manager@example.com / manager123</p>
-                            <p>👁️ Viewer: viewer@example.com / viewer123</p>
-                        </div>
                     </div>
                 </div>
             </div>

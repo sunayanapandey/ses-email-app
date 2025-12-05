@@ -1,11 +1,10 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
-import { Mail, Lock, User, UserPlus, AlertCircle } from 'lucide-react';
+import { api } from '../services/api';
+import { Mail, Lock, UserPlus, AlertCircle } from 'lucide-react';
 
 const Register = () => {
     const [formData, setFormData] = useState({
-        name: '',
         email: '',
         password: '',
         confirmPassword: ''
@@ -13,7 +12,6 @@ const Register = () => {
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
 
-    const { register } = useAuth();
     const navigate = useNavigate();
 
     const handleChange = (e) => {
@@ -29,7 +27,7 @@ const Register = () => {
         setLoading(true);
 
         // Validation
-        if (!formData.name || !formData.email || !formData.password || !formData.confirmPassword) {
+        if (!formData.email || !formData.password || !formData.confirmPassword) {
             setError('Please fill in all fields');
             setLoading(false);
             return;
@@ -55,16 +53,18 @@ const Register = () => {
             return;
         }
 
-        // Attempt registration
-        const result = register(formData.email, formData.password, formData.name);
+        try {
+            // Call API register
+            await api.register(formData.email, formData.password);
 
-        if (result.success) {
-            navigate('/stats', { replace: true });
-        } else {
-            setError(result.error);
+            // Show success and redirect to login
+            alert('Registration successful! Please login.');
+            navigate('/login');
+        } catch (error) {
+            setError('Registration failed. Email may already be in use.');
+        } finally {
+            setLoading(false);
         }
-
-        setLoading(false);
     };
 
     return (
@@ -89,27 +89,6 @@ const Register = () => {
                                 <p className="text-sm text-red-800">{error}</p>
                             </div>
                         )}
-
-                        {/* Name Field */}
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Full Name
-                            </label>
-                            <div className="relative">
-                                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                    <User className="text-gray-400" size={20} />
-                                </div>
-                                <input
-                                    type="text"
-                                    name="name"
-                                    value={formData.name}
-                                    onChange={handleChange}
-                                    className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none transition-all"
-                                    placeholder="John Doe"
-                                    autoComplete="name"
-                                />
-                            </div>
-                        </div>
 
                         {/* Email Field */}
                         <div>

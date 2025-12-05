@@ -1,13 +1,69 @@
 // AWS SES API Service
-const BASE_URL = "https://ef4cm95q5c.execute-api.us-east-1.amazonaws.com/prod";
+const BASE_URL = "https://nreu2d8paf.execute-api.us-east-1.amazonaws.com/prod";
+const AUTH_BASE_URL = "http://52.22.236.46/api";
+
+// Helper to get auth token
+const getAuthToken = () => {
+    return localStorage.getItem('auth_token');
+};
+
+// Helper to add auth header  
+const getAuthHeaders = () => {
+    const token = getAuthToken();
+    return {
+        'Content-Type': 'application/json',
+        ...(token && { 'Authorization': `Bearer ${token}` })
+    };
+};
 
 export const api = {
+    // ========== Authentication ==========
+
+    register: async (email, password) => {
+        try {
+            const response = await fetch(`${AUTH_BASE_URL}/auth/register`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email, password })
+            });
+            if (!response.ok) throw new Error('Registration failed');
+            return await response.json();
+        } catch (error) {
+            console.error('Error registering:', error);
+            throw error;
+        }
+    },
+
+    login: async (email, password) => {
+        try {
+            // FastAPI OAuth2 expects form data, not JSON
+            const formData = new URLSearchParams();
+            formData.append('username', email);
+            formData.append('password', password);
+
+            const response = await fetch(`${AUTH_BASE_URL}/auth/login`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: formData
+            });
+            if (!response.ok) throw new Error('Login failed');
+            return await response.json();
+        } catch (error) {
+            console.error('Error logging in:', error);
+            throw error;
+        }
+    },
+
     // ========== AWS API Endpoints ==========
 
     // Get user's email balance
     getBalance: async () => {
         try {
-            const response = await fetch(`${BASE_URL}/balance`);
+            const response = await fetch(`${BASE_URL}/balance`, {
+                headers: getAuthHeaders()
+            });
             const data = await response.json();
             return data.balance || 0;
         } catch (error) {
@@ -21,9 +77,7 @@ export const api = {
         try {
             const response = await fetch(`${BASE_URL}/upload`, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
+                headers: getAuthHeaders(),
                 body: JSON.stringify({
                     fileName,
                     subject,
@@ -31,7 +85,9 @@ export const api = {
                     senderEmail,
                 }),
             });
-            const data = await response.json();
+            const
+
+                data = await response.json();
             return data.uploadURL;
         } catch (error) {
             console.error('Error getting upload URL:', error);
@@ -59,19 +115,16 @@ export const api = {
     // Get single campaign by ID
     getCampaign: async (campaignId) => {
         try {
-            console.log('Fetching campaign:', campaignId);
             const url = `${BASE_URL}/campaigns?campaignId=${encodeURIComponent(campaignId)}`;
-            console.log('Request URL:', url);
-
-            const response = await fetch(url);
-            console.log('Response status:', response.status);
+            const response = await fetch(url, {
+                headers: getAuthHeaders()
+            });
 
             if (!response.ok) {
                 throw new Error(`HTTP ${response.status}: ${response.statusText}`);
             }
 
             const data = await response.json();
-            console.log('Raw API response:', data);
 
             return {
                 campaignId: data.CampaignId,
@@ -95,16 +148,16 @@ export const api = {
     // Get all campaigns
     getCampaigns: async () => {
         try {
-            const response = await fetch(`${BASE_URL}/campaigns`);
+            const response = await fetch(`${BASE_URL}/campaigns`, {
+                headers: getAuthHeaders()
+            });
 
             if (!response.ok) {
                 throw new Error(`HTTP ${response.status}: ${response.statusText}`);
             }
 
             const data = await response.json();
-            console.log('Campaigns from API:', data);
 
-            // Transform the data to match expected format
             return data.map(campaign => ({
                 campaignId: campaign.CampaignId,
                 name: campaign.OriginalFileName || campaign.CampaignId,
@@ -125,12 +178,14 @@ export const api = {
         }
     },
 
-    // ========== Lists Management (Real API) ==========
+    // ========== Lists Management ==========
 
     // Get all lists
     getLists: async () => {
         try {
-            const response = await fetch(`${BASE_URL}/lists`);
+            const response = await fetch(`${BASE_URL}/lists`, {
+                headers: getAuthHeaders()
+            });
             if (!response.ok) throw new Error('Failed to fetch lists');
             const data = await response.json();
 
@@ -151,7 +206,7 @@ export const api = {
         try {
             const response = await fetch(`${BASE_URL}/lists`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: getAuthHeaders(),
                 body: JSON.stringify({ name, description })
             });
 
@@ -174,7 +229,8 @@ export const api = {
     deleteList: async (listId) => {
         try {
             const response = await fetch(`${BASE_URL}/lists?listId=${encodeURIComponent(listId)}`, {
-                method: 'DELETE'
+                method: 'DELETE',
+                headers: getAuthHeaders()
             });
 
             if (!response.ok) throw new Error('Failed to delete list');
@@ -185,12 +241,14 @@ export const api = {
         }
     },
 
-    // ========== Contacts Management (Real API) ==========
+    // ========== Contacts Management ==========
 
-    // Get contacts for a specific list
+    // Get contacts by list ID
     getContactsByList: async (listId) => {
         try {
-            const response = await fetch(`${BASE_URL}/contacts?listId=${encodeURIComponent(listId)}`);
+            const response = await fetch(`${BASE_URL}/contacts?listId=${encodeURIComponent(listId)}`, {
+                headers: getAuthHeaders()
+            });
             if (!response.ok) throw new Error('Failed to fetch contacts');
             const data = await response.json();
 
@@ -207,12 +265,12 @@ export const api = {
         }
     },
 
-    // Add a contact to a list
+    // Add a single contact
     addContact: async (email, name, listId) => {
         try {
             const response = await fetch(`${BASE_URL}/contacts`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: getAuthHeaders(),
                 body: JSON.stringify({ Email: email, Name: name, ListId: listId })
             });
 
@@ -224,7 +282,7 @@ export const api = {
         }
     },
 
-    // Batch add contacts to a list
+    // Batch add contacts
     batchAddContacts: async (contacts, listId) => {
         try {
             const promises = contacts.map(contact =>
@@ -237,21 +295,22 @@ export const api = {
         }
     },
 
-    // ========== Template Management (Real API) ==========
+    // ========== Templates Management ==========
 
     // Get all templates
     getTemplates: async () => {
         try {
-            const response = await fetch(`${BASE_URL}/templates`);
+            const response = await fetch(`${BASE_URL}/templates`, {
+                headers: getAuthHeaders()
+            });
             if (!response.ok) throw new Error('Failed to fetch templates');
             const data = await response.json();
 
             return data.map(template => ({
                 id: template.TemplateId,
-                name: template.name || template.Name,
-                content: template.content || template.Content,
-                isSystem: template.isSystem || template.IsSystem || false,
-                createdAt: template.UpdatedAt || template.CreatedAt
+                name: template.name,
+                content: template.content,
+                isSystem: template.isSystem || false
             }));
         } catch (error) {
             console.error('Error fetching templates:', error);
@@ -259,18 +318,13 @@ export const api = {
         }
     },
 
-    // Save or update template
+    // Save template (create or update)
     saveTemplate: async (template) => {
         try {
             const response = await fetch(`${BASE_URL}/templates`, {
                 method: template.id ? 'PUT' : 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    id: template.id,
-                    name: template.name,
-                    content: template.content,
-                    isSystem: template.isSystem || false
-                })
+                headers: getAuthHeaders(),
+                body: JSON.stringify(template)
             });
 
             if (!response.ok) throw new Error('Failed to save template');
@@ -292,7 +346,8 @@ export const api = {
     deleteTemplate: async (templateId) => {
         try {
             const response = await fetch(`${BASE_URL}/templates?templateId=${encodeURIComponent(templateId)}`, {
-                method: 'DELETE'
+                method: 'DELETE',
+                headers: getAuthHeaders()
             });
 
             if (!response.ok) throw new Error('Failed to delete template');
@@ -303,19 +358,19 @@ export const api = {
         }
     },
 
-    // ========== Domain Management (Real API) ==========
+    // ========== Domains Management ==========
 
-    // Get all verified/pending SES domains and emails
     getDomains: async () => {
         try {
-            const response = await fetch(`${BASE_URL}/domains`);
+            const response = await fetch(`${BASE_URL}/domains`, {
+                headers: getAuthHeaders()
+            });
             if (!response.ok) throw new Error('Failed to fetch domains');
             const data = await response.json();
 
-            // Transform to expected format
             return data.map(d => ({
                 domain: d.identity,
-                status: d.status === 'Success' ? 'success' : d.status.toLowerCase(),
+                status: d.status,
                 token: d.token
             }));
         } catch (error) {
@@ -324,17 +379,18 @@ export const api = {
         }
     },
 
-    verifyDomain: async (identity, type = 'email') => {
+    addDomain: async (identity, type) => {
         try {
             const response = await fetch(`${BASE_URL}/domains`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: getAuthHeaders(),
                 body: JSON.stringify({ identity, type })
             });
-            if (!response.ok) throw new Error('Failed to verify domain/email');
+
+            if (!response.ok) throw new Error('Failed to add domain');
             return await response.json();
         } catch (error) {
-            console.error('Error verifying domain:', error);
+            console.error('Error adding domain:', error);
             throw error;
         }
     },
@@ -342,8 +398,10 @@ export const api = {
     deleteDomain: async (identity) => {
         try {
             const response = await fetch(`${BASE_URL}/domains?identity=${encodeURIComponent(identity)}`, {
-                method: 'DELETE'
+                method: 'DELETE',
+                headers: getAuthHeaders()
             });
+
             if (!response.ok) throw new Error('Failed to delete domain');
             return await response.json();
         } catch (error) {
@@ -351,4 +409,22 @@ export const api = {
             throw error;
         }
     },
+
+    // ========== Campaign Actions ==========
+
+    sendCampaign: async (campaignId) => {
+        try {
+            const response = await fetch(`${BASE_URL}/campaigns/send`, {
+                method: 'POST',
+                headers: getAuthHeaders(),
+                body: JSON.stringify({ campaignId })
+            });
+
+            if (!response.ok) throw new Error('Failed to send campaign');
+            return await response.json();
+        } catch (error) {
+            console.error('Error sending campaign:', error);
+            throw error;
+        }
+    }
 };
