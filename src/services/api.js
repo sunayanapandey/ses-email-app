@@ -1,5 +1,5 @@
 // AWS SES API Service
-const BASE_URL = "https://nreu2d8paf.execute-api.us-east-1.amazonaws.com/prod";
+const BASE_URL = "https://tpifntockj.execute-api.us-east-1.amazonaws.com/prod";
 const AUTH_BASE_URL = "http://52.22.236.46/api";
 
 // Helper to get auth token
@@ -358,54 +358,53 @@ export const api = {
         }
     },
 
-    // ========== Domains Management ==========
+    // ========== Senders Management (Email Verification) ==========
 
-    getDomains: async () => {
+    getSenders: async () => {
         try {
-            const response = await fetch(`${BASE_URL}/domains`, {
+            const response = await fetch(`${BASE_URL}/senders`, {
                 headers: getAuthHeaders()
             });
-            if (!response.ok) throw new Error('Failed to fetch domains');
+            if (!response.ok) throw new Error('Failed to fetch senders');
             const data = await response.json();
 
             return data.map(d => ({
-                domain: d.identity,
-                status: d.status,
-                token: d.token
+                email: d.email,
+                status: d.status || 'Pending'
             }));
         } catch (error) {
-            console.error('Error fetching domains:', error);
+            console.error('Error fetching senders:', error);
             return [];
         }
     },
 
-    addDomain: async (identity, type) => {
+    addSender: async (email) => {
         try {
-            const response = await fetch(`${BASE_URL}/domains`, {
+            const response = await fetch(`${BASE_URL}/senders`, {
                 method: 'POST',
                 headers: getAuthHeaders(),
-                body: JSON.stringify({ identity, type })
+                body: JSON.stringify({ email })
             });
 
-            if (!response.ok) throw new Error('Failed to add domain');
+            if (!response.ok) throw new Error('Failed to add sender');
             return await response.json();
         } catch (error) {
-            console.error('Error adding domain:', error);
+            console.error('Error adding sender:', error);
             throw error;
         }
     },
 
-    deleteDomain: async (identity) => {
+    deleteSender: async (email) => {
         try {
-            const response = await fetch(`${BASE_URL}/domains?identity=${encodeURIComponent(identity)}`, {
+            const response = await fetch(`${BASE_URL}/senders?email=${encodeURIComponent(email)}`, {
                 method: 'DELETE',
                 headers: getAuthHeaders()
             });
 
-            if (!response.ok) throw new Error('Failed to delete domain');
+            if (!response.ok) throw new Error('Failed to delete sender');
             return await response.json();
         } catch (error) {
-            console.error('Error deleting domain:', error);
+            console.error('Error deleting sender:', error);
             throw error;
         }
     },

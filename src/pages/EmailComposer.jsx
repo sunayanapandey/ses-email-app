@@ -39,10 +39,10 @@ const EmailComposer = () => {
 
     const loadVerifiedEmails = async () => {
         try {
-            const domains = await api.getDomains();
-            const verified = domains
-                .filter(d => d.status === 'success' || d.status === 'Success')
-                .map(d => d.domain);
+            const senders = await api.getSenders();
+            const verified = senders
+                .filter(s => s.status === 'success' || s.status === 'Success')
+                .map(s => s.email);
             setVerifiedEmails(verified);
             if (verified.length > 0 && !senderEmail) {
                 setSenderEmail(verified[0]); // Set first verified email as default
