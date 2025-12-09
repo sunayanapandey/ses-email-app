@@ -3,6 +3,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Responsive
 import { api } from '../services/api';
 import { Send, MailOpen, MousePointer, XCircle, RefreshCw, Search, Clock } from 'lucide-react';
 import Button from '../components/Button';
+import { COLOR_SCHEMES } from '../utils/chartColors';
 
 const CampaignStats = () => {
     const [stats, setStats] = useState(null);
@@ -268,7 +269,7 @@ const CampaignStats = () => {
         { name: 'Bounced', value: stats.bounced },
     ];
 
-    const COLORS = ['#E6509B', '#91C36A', '#E3C166', '#FF155A'];
+    const COLORS = COLOR_SCHEMES.emailStatus;
 
     const StatCard = ({ title, value, icon: Icon, color }) => (
         <div className="bg-white p-6 rounded-xl shadow-sm border border-surface-100 flex items-center gap-4">

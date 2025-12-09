@@ -2,6 +2,13 @@
 const BASE_URL = "https://tpifntockj.execute-api.us-east-1.amazonaws.com/prod";
 const AUTH_BASE_URL = "http://52.22.236.46/api";
 
+// Session expiration callback (will be set by AuthContext)
+let onSessionExpired = null;
+
+export const setSessionExpiredCallback = (callback) => {
+    onSessionExpired = callback;
+};
+
 // Helper to get auth token
 const getAuthToken = () => {
     return localStorage.getItem('auth_token');
@@ -14,6 +21,23 @@ const getAuthHeaders = () => {
         'Content-Type': 'application/json',
         ...(token && { 'Authorization': `Bearer ${token}` })
     };
+};
+
+// Helper to handle API response and detect 401 errors
+const handleResponse = async (response) => {
+    console.log('📡 API Response Status:', response.status);
+    if (response.status === 401) {
+        console.log('🔴 401 Unauthorized detected!');
+        // Token expired or unauthorized
+        if (onSessionExpired) {
+            console.log('✅ Calling session expired callback');
+            onSessionExpired();
+        } else {
+            console.log('⚠️ No session expired callback registered!');
+        }
+        throw new Error('Session expired. Please log in again.');
+    }
+    return response;
 };
 
 export const api = {
@@ -64,6 +88,7 @@ export const api = {
             const response = await fetch(`${BASE_URL}/balance`, {
                 headers: getAuthHeaders()
             });
+            await handleResponse(response);
             const data = await response.json();
             return data.balance || 0;
         } catch (error) {

@@ -4,6 +4,7 @@ import { Mail, Users, BarChart as BarChartIcon, Plus, ArrowRight, TrendingUp, Se
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from 'recharts';
 import { api } from '../services/api';
 import Button from '../components/Button';
+import { COLOR_SCHEMES } from '../utils/chartColors';
 
 const Dashboard = () => {
     const [balance, setBalance] = useState(null);
@@ -160,10 +161,10 @@ const Dashboard = () => {
 
     // Real email status distribution from DynamoDB
     const statusData = [
-        { name: 'Sent', value: totalEmailsSent, color: '#ec4899' },
-        { name: 'Opened', value: totalOpened, color: '#f472b6' },
-        { name: 'Clicked', value: totalClicked, color: '#db2777' },
-        { name: 'Bounced', value: totalBounced, color: '#be185d' },
+        { name: 'Sent', value: totalEmailsSent, color: COLOR_SCHEMES.emailStatus[0] },
+        { name: 'Opened', value: totalOpened, color: COLOR_SCHEMES.emailStatus[1] },
+        { name: 'Clicked', value: totalClicked, color: COLOR_SCHEMES.emailStatus[2] },
+        { name: 'Bounced', value: totalBounced, color: COLOR_SCHEMES.emailStatus[3] },
     ];
 
     const StatCard = ({ label, value, icon: Icon, color, trend, to }) => {
@@ -285,9 +286,9 @@ const Dashboard = () => {
                                 <XAxis dataKey="name" tick={{ fontSize: 12 }} />
                                 <YAxis tick={{ fontSize: 12 }} />
                                 <Tooltip />
-                                <Bar dataKey="sent" fill="#ec4899" name="Sent" />
-                                <Bar dataKey="opened" fill="#f472b6" name="Opened" />
-                                <Bar dataKey="clicked" fill="#db2777" name="Clicked" />
+                                <Bar dataKey="sent" fill={COLOR_SCHEMES.campaignPerformance[0]} name="Sent" />
+                                <Bar dataKey="opened" fill={COLOR_SCHEMES.campaignPerformance[1]} name="Opened" />
+                                <Bar dataKey="clicked" fill={COLOR_SCHEMES.campaignPerformance[2]} name="Clicked" />
                             </BarChart>
                         </ResponsiveContainer>
                     ) : (
@@ -312,7 +313,7 @@ const Dashboard = () => {
                             <XAxis dataKey="day" tick={{ fontSize: 12 }} />
                             <YAxis tick={{ fontSize: 12 }} />
                             <Tooltip />
-                            <Line type="monotone" dataKey="emails" stroke="#ec4899" strokeWidth={2} dot={{ r: 4 }} />
+                            <Line type="monotone" dataKey="emails" stroke={COLOR_SCHEMES.lineChart[0]} strokeWidth={2} dot={{ r: 4 }} />
                         </LineChart>
                     </ResponsiveContainer>
                 </div>
