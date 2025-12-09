@@ -60,6 +60,75 @@ const Dashboard = () => {
         }));
     };
 
+    // Helper functions for trend calculations
+    const calculateMonthlyGrowth = (campaigns) => {
+        const now = new Date();
+        const thisMonth = now.getMonth();
+        const thisYear = now.getFullYear();
+        const lastMonth = thisMonth === 0 ? 11 : thisMonth - 1;
+        const lastMonthYear = thisMonth === 0 ? thisYear - 1 : thisYear;
+
+        const thisMonthCount = campaigns.filter(c => {
+            const d = new Date(c.createdAt);
+            return d.getMonth() === thisMonth && d.getFullYear() === thisYear;
+        }).length;
+
+        const lastMonthCount = campaigns.filter(c => {
+            const d = new Date(c.createdAt);
+            return d.getMonth() === lastMonth && d.getFullYear() === lastMonthYear;
+        }).length;
+
+        if (lastMonthCount === 0) return thisMonthCount > 0 ? "+100% this month" : "0% this month";
+        const growth = ((thisMonthCount - lastMonthCount) / lastMonthCount) * 100;
+        return `${growth > 0 ? '+' : ''}${growth.toFixed(0)}% this month`;
+    };
+
+    const calculateWeeklyEmailGrowth = (campaigns) => {
+        const now = new Date();
+        const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        const twoWeeksAgo = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
+
+        const thisWeekCount = campaigns
+            .filter(c => new Date(c.createdAt) >= oneWeekAgo)
+            .reduce((sum, c) => sum + (c.sent || 0), 0);
+
+        const lastWeekCount = campaigns
+            .filter(c => {
+                const d = new Date(c.createdAt);
+                return d >= twoWeeksAgo && d < oneWeekAgo;
+            })
+            .reduce((sum, c) => sum + (c.sent || 0), 0);
+
+        if (lastWeekCount === 0) return thisWeekCount > 0 ? "+100% this week" : "0% this week";
+        const growth = ((thisWeekCount - lastWeekCount) / lastWeekCount) * 100;
+        return `${growth > 0 ? '+' : ''}${growth.toFixed(0)}% this week`;
+    };
+
+    const calculateOpenRateGrowth = (campaigns) => {
+        const now = new Date();
+        const thisMonth = now.getMonth();
+        const thisYear = now.getFullYear();
+        const lastMonth = thisMonth === 0 ? 11 : thisMonth - 1;
+        const lastMonthYear = thisMonth === 0 ? thisYear - 1 : thisYear;
+
+        const getAvgRate = (month, year) => {
+            const monthCampaigns = campaigns.filter(c => {
+                const d = new Date(c.createdAt);
+                return d.getMonth() === month && d.getFullYear() === year;
+            });
+            const totalSent = monthCampaigns.reduce((sum, c) => sum + (c.sent || 0), 0);
+            const totalOpened = monthCampaigns.reduce((sum, c) => sum + (c.opened || 0), 0);
+            return totalSent > 0 ? (totalOpened / totalSent) * 100 : 0;
+        };
+
+        const thisMonthRate = getAvgRate(thisMonth, thisYear);
+        const lastMonthRate = getAvgRate(lastMonth, lastMonthYear);
+
+        if (lastMonthRate === 0) return thisMonthRate > 0 ? `+${thisMonthRate.toFixed(1)}% vs last month` : "0% vs last month";
+        const growth = thisMonthRate - lastMonthRate;
+        return `${growth > 0 ? '+' : ''}${growth.toFixed(1)}% vs last month`;
+    };
+
     // Calculate real stats from DynamoDB campaign data
     const totalCampaigns = campaigns.length;
 
@@ -72,6 +141,11 @@ const Dashboard = () => {
     // Calculate average rates
     const avgOpenRate = totalEmailsSent > 0 ? ((totalOpened / totalEmailsSent) * 100).toFixed(1) : 0;
     const avgClickRate = totalEmailsSent > 0 ? ((totalClicked / totalEmailsSent) * 100).toFixed(1) : 0;
+
+    // Calculate Trends
+    const campaignTrend = calculateMonthlyGrowth(campaigns);
+    const emailTrend = calculateWeeklyEmailGrowth(campaigns);
+    const openRateTrend = calculateOpenRateGrowth(campaigns);
 
     // Real campaign performance data from DynamoDB
     const campaignPerformance = campaigns.slice(0, 5).map(campaign => ({
@@ -92,34 +166,40 @@ const Dashboard = () => {
         { name: 'Bounced', value: totalBounced, color: '#be185d' },
     ];
 
-    const StatCard = ({ label, value, icon: Icon, color, trend, to }) => (
-        <Link to={to} className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition-shadow">
-            <div className="flex justify-between items-start">
-                <div>
-                    <p className="text-h6 text-surface-500">{label}</p>
-                    <h3 className="text-h2 text-surface-900 mt-1">
-                        {loading ? (
-                            <span className="inline-block w-20 h-8 bg-gray-200 animate-pulse rounded"></span>
-                        ) : (
-                            value
+    const StatCard = ({ label, value, icon: Icon, color, trend, to }) => {
+        const isPositive = trend && (trend.startsWith('+') || trend.startsWith('0%'));
+        const trendColor = isPositive ? 'text-green-600' : 'text-red-600';
+        const TrendIcon = isPositive ? TrendingUp : TrendingUp; // Could use TrendingDown for negative if imported
+
+        return (
+            <Link to={to} className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition-shadow">
+                <div className="flex justify-between items-start">
+                    <div>
+                        <p className="text-h6 text-surface-500">{label}</p>
+                        <h3 className="text-h2 text-surface-900 mt-1">
+                            {loading ? (
+                                <span className="inline-block w-20 h-8 bg-gray-200 animate-pulse rounded"></span>
+                            ) : (
+                                value
+                            )}
+                        </h3>
+                        {trend && (
+                            <p className={`text-xs ${trendColor} mt-1 flex items-center gap-1`}>
+                                <TrendIcon size={12} className={!isPositive ? "rotate-180" : ""} />
+                                {trend}
+                            </p>
                         )}
-                    </h3>
-                    {trend && (
-                        <p className="text-xs text-green-600 mt-1 flex items-center gap-1">
-                            <TrendingUp size={12} />
-                            {trend}
-                        </p>
-                    )}
+                    </div>
+                    <div className={`p-3 rounded-lg ${color} bg-opacity-10`}>
+                        <Icon size={24} className={color.replace('bg-', 'text-')} />
+                    </div>
                 </div>
-                <div className={`p-3 rounded-lg ${color} bg-opacity-10`}>
-                    <Icon size={24} className={color.replace('bg-', 'text-')} />
+                <div className="mt-4 flex items-center text-sm text-primary-600 font-medium">
+                    View Details <ArrowRight size={16} className="ml-1" />
                 </div>
-            </div>
-            <div className="mt-4 flex items-center text-sm text-primary-600 font-medium">
-                View Details <ArrowRight size={16} className="ml-1" />
-            </div>
-        </Link>
-    );
+            </Link>
+        );
+    };
 
     return (
         <div className="p-8 max-w-7xl mx-auto">
@@ -154,23 +234,23 @@ const Dashboard = () => {
                     value={totalCampaigns.toLocaleString()}
                     icon={Send}
                     color="bg-primary-500"
-                    trend="+12% this month"
+                    trend={campaignTrend}
                     to="/stats"
                 />
                 <StatCard
                     label="Emails Sent"
                     value={totalEmailsSent.toLocaleString()}
                     icon={Mail}
-                    color="bg-pink-400"
-                    trend="+8% this week"
+                    color="bg-secondary-500"
+                    trend={emailTrend}
                     to="/stats"
                 />
                 <StatCard
                     label="Avg Open Rate"
                     value={`${avgOpenRate}%`}
                     icon={MailOpen}
-                    color="bg-rose-400"
-                    trend="+2.3% vs last month"
+                    color="bg-success-500"
+                    trend={openRateTrend}
                     to="/stats"
                 />
                 <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
@@ -186,8 +266,8 @@ const Dashboard = () => {
                             </h3>
                             <p className="text-caption text-surface-400 mt-1">Available credits</p>
                         </div>
-                        <div className="p-3 rounded-lg bg-amber-500 bg-opacity-10">
-                            <Coins size={24} className="text-amber-500" />
+                        <div className="p-3 rounded-lg bg-warning-500 bg-opacity-10">
+                            <Coins size={24} className="text-warning-500" />
                         </div>
                     </div>
                 </div>
