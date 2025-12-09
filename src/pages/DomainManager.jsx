@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../services/api';
 import { Plus, CheckCircle, Clock, Trash2, Mail } from 'lucide-react';
+import Button from '../components/Button';
 
 const DomainManager = () => {
     const [senders, setSenders] = useState([]);
@@ -50,12 +51,12 @@ const DomainManager = () => {
     return (
         <div className="p-8 max-w-4xl mx-auto">
             <div className="mb-8">
-                <h1 className="text-3xl font-bold text-gray-900">Sender Email Verification</h1>
-                <p className="text-gray-500 mt-2">Verify email addresses to send campaigns from.</p>
+                <h1 className="text-h1 text-surface-900">Sender Email Verification</h1>
+                <p className="text-surface-500 mt-2">Verify email addresses to send campaigns from.</p>
             </div>
 
             {/* Add Email Form */}
-            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 mb-8">
+            <div className="bg-white p-6 rounded-xl shadow-sm border border-surface-100 mb-8">
                 <h2 className="text-lg font-semibold mb-4">Verify New Sender Email</h2>
                 <form onSubmit={handleAddEmail} className="flex gap-4">
                     <input
@@ -65,40 +66,40 @@ const DomainManager = () => {
                         placeholder="sender@example.com"
                         className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none transition-all"
                     />
-                    <button
+                    <Button
                         type="submit"
                         disabled={loading}
-                        className="bg-primary-600 text-white px-6 py-2 rounded-lg font-medium hover:bg-primary-700 transition-colors flex items-center gap-2 disabled:opacity-50"
+                        loading={loading}
+                        icon={Plus}
                     >
-                        <Plus size={20} />
                         {loading ? 'Sending...' : 'Verify Email'}
-                    </button>
+                    </Button>
                 </form>
-                <p className="text-sm text-gray-500 mt-3">
+                <p className="text-body text-surface-500 mt-3">
                     📧 AWS will send a verification email to this address. Click the link to verify.
                 </p>
             </div>
 
             {/* Senders List */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-                <div className="px-6 py-4 border-b border-gray-100 bg-gray-50">
-                    <h2 className="font-semibold text-gray-700">Verified Sender Emails</h2>
+            <div className="bg-white rounded-xl shadow-sm border border-surface-100 overflow-hidden">
+                <div className="px-6 py-4 border-b border-surface-100 bg-surface-10">
+                    <h2 className="font-semibold text-surface-700">Verified Sender Emails</h2>
                 </div>
                 <div className="divide-y divide-gray-100">
                     {senders.map((sender, idx) => (
-                        <div key={idx} className="p-6 flex items-center justify-between hover:bg-gray-50 transition-colors">
+                        <div key={idx} className="p-6 flex items-center justify-between hover:bg-surface-10 transition-colors">
                             <div className="flex items-center gap-4">
                                 <div className={`p-2 rounded-full ${sender.status === 'Success' ? 'bg-green-100 text-green-600' :
-                                        sender.status === 'Pending' ? 'bg-yellow-100 text-yellow-600' :
-                                            'bg-gray-100 text-gray-600'
+                                    sender.status === 'Pending' ? 'bg-yellow-100 text-yellow-600' :
+                                        'bg-gray-100 text-surface-600'
                                     }`}>
                                     {sender.status === 'Success' ? <CheckCircle size={24} /> :
                                         sender.status === 'Pending' ? <Clock size={24} /> :
                                             <Mail size={24} />}
                                 </div>
                                 <div>
-                                    <h3 className="font-medium text-gray-900">{sender.email}</h3>
-                                    <p className="text-sm text-gray-500 capitalize">{sender.status}</p>
+                                    <h3 className="font-medium text-surface-900">{sender.email}</h3>
+                                    <p className="text-body text-surface-500 capitalize">{sender.status}</p>
                                 </div>
                             </div>
                             <div className="flex items-center gap-4">
@@ -112,17 +113,17 @@ const DomainManager = () => {
                                         Verified ✓
                                     </span>
                                 )}
-                                <button
+                                <Button
+                                    variant="destructive"
+                                    size="sm"
                                     onClick={() => handleDeleteEmail(sender.email)}
-                                    className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                                >
-                                    <Trash2 size={20} />
-                                </button>
+                                    icon={Trash2}
+                                />
                             </div>
                         </div>
                     ))}
                     {senders.length === 0 && (
-                        <div className="p-8 text-center text-gray-500">
+                        <div className="p-8 text-center text-surface-500">
                             No sender emails added yet. Add one above to start sending campaigns.
                         </div>
                     )}

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import Papa from 'papaparse';
 import { Upload, Users, FileSpreadsheet, Trash2, CheckCircle } from 'lucide-react';
 import { api } from '../services/api';
+import Button from '../components/Button';
 
 const ContactManager = () => {
     const [contacts, setContacts] = useState([]);
@@ -177,38 +178,39 @@ const ContactManager = () => {
         <div className="p-8 max-w-6xl mx-auto h-full flex flex-col">
             <div className="mb-8 flex justify-between items-end">
                 <div>
-                    <h1 className="text-3xl font-bold text-gray-900">Contact Management</h1>
-                    <p className="text-gray-500 mt-2">Manage your saved contact lists and preview CSVs.</p>
+                    <h1 className="text-h1 text-surface-900">Contact Management</h1>
+                    <p className="text-surface-500 mt-2">Manage your saved contact lists and preview CSVs.</p>
                 </div>
                 <div className="flex gap-4">
                     <div className="bg-white px-4 py-2 rounded-lg border border-gray-200 flex items-center gap-2 shadow-sm">
                         <Users className="text-primary-600" size={20} />
-                        <span className="font-semibold text-gray-900">{contacts.length}</span>
-                        <span className="text-gray-500">Total Contacts</span>
+                        <span className="font-semibold text-surface-900">{contacts.length}</span>
+                        <span className="text-surface-500">Total Contacts</span>
                     </div>
                     {contacts.length > 0 && (
                         <>
-                            <button
+                            <Button
+                                variant="secondary"
                                 onClick={saveCurrentList}
-                                className="px-4 py-2 text-primary-600 hover:bg-primary-50 rounded-lg border border-primary-200 transition-colors flex items-center gap-2"
+                                icon={Upload}
+                                className="rotate-180" // Icon rotation needs to be handled differently or passed as prop
                             >
-                                <Upload size={18} className="rotate-180" />
                                 Save as List
-                            </button>
-                            <button
+                            </Button>
+                            <Button
+                                variant="secondary"
                                 onClick={exportCSV}
-                                className="px-4 py-2 text-primary-600 hover:bg-primary-50 rounded-lg border border-primary-200 transition-colors flex items-center gap-2"
+                                icon={Upload}
                             >
-                                <Upload size={18} className="rotate-180" />
                                 Export CSV
-                            </button>
-                            <button
+                            </Button>
+                            <Button
+                                variant="destructive"
                                 onClick={clearContacts}
-                                className="px-4 py-2 text-red-600 hover:bg-red-50 rounded-lg border border-red-200 transition-colors flex items-center gap-2"
+                                icon={Trash2}
                             >
-                                <Trash2 size={18} />
                                 Clear View
-                            </button>
+                            </Button>
                         </>
                     )}
                 </div>
@@ -217,14 +219,14 @@ const ContactManager = () => {
             <div className="grid grid-cols-1 lg:grid-cols-4 gap-8 flex-1 min-h-0">
                 {/* Saved Lists Sidebar */}
                 <div className="lg:col-span-1 flex flex-col gap-4">
-                    <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex-1 overflow-hidden flex flex-col">
-                        <h3 className="font-bold text-gray-900 mb-4 flex items-center gap-2">
+                    <div className="bg-white p-4 rounded-xl shadow-sm border border-surface-100 flex-1 overflow-hidden flex flex-col">
+                        <h3 className="font-bold text-surface-900 mb-4 flex items-center gap-2">
                             <FileSpreadsheet size={20} className="text-primary-600" />
                             Saved Lists
                         </h3>
                         <div className="overflow-y-auto flex-1 space-y-2">
                             {savedLists.length === 0 ? (
-                                <p className="text-sm text-gray-500 italic">No saved lists yet.</p>
+                                <p className="text-body text-surface-500 italic">No saved lists yet.</p>
                             ) : (
                                 savedLists.map(list => (
                                     <div
@@ -232,16 +234,16 @@ const ContactManager = () => {
                                         onClick={() => loadList(list)}
                                         className={`p-3 rounded-lg border cursor-pointer transition-all group flex justify-between items-center ${selectedListId === list.id
                                             ? 'border-primary-500 bg-primary-50'
-                                            : 'border-gray-200 hover:border-primary-300 hover:bg-gray-50'
+                                            : 'border-gray-200 hover:border-primary-300 hover:bg-surface-10'
                                             }`}
                                     >
                                         <div className="overflow-hidden">
-                                            <p className="font-medium text-gray-900 truncate">{list.name}</p>
-                                            <p className="text-xs text-gray-500 truncate">{list.description || 'No description'}</p>
+                                            <p className="font-medium text-surface-900 truncate">{list.name}</p>
+                                            <p className="text-caption text-surface-500 truncate">{list.description || 'No description'}</p>
                                         </div>
                                         <button
                                             onClick={(e) => deleteList(e, list.id)}
-                                            className="text-gray-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                                            className="text-surface-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity"
                                             title="Delete List"
                                         >
                                             <Trash2 size={16} />
@@ -254,7 +256,7 @@ const ContactManager = () => {
 
                     {/* Upload Area (Small) */}
                     <div
-                        className={`border-2 border-dashed rounded-xl flex flex-col items-center justify-center p-4 text-center transition-all ${dragActive ? 'border-primary-500 bg-primary-50' : 'border-gray-300 hover:border-primary-400 hover:bg-gray-50'
+                        className={`border-2 border-dashed rounded-xl flex flex-col items-center justify-center p-4 text-center transition-all ${dragActive ? 'border-primary-500 bg-primary-50' : 'border-gray-300 hover:border-primary-400 hover:bg-surface-10'
                             }`}
                         onDragEnter={handleDrag}
                         onDragLeave={handleDrag}
@@ -262,7 +264,7 @@ const ContactManager = () => {
                         onDrop={handleDrop}
                     >
                         <Upload size={24} className="text-primary-400 mb-2" />
-                        <p className="text-sm font-medium text-gray-900">Upload New CSV</p>
+                        <p className="text-h6 text-surface-900">Upload New CSV</p>
                         <input
                             type="file"
                             accept=".csv"
@@ -280,9 +282,9 @@ const ContactManager = () => {
                 </div>
 
                 {/* Contact List */}
-                <div className="lg:col-span-3 bg-white rounded-xl shadow-sm border border-gray-100 flex flex-col overflow-hidden">
-                    <div className="p-4 border-b border-gray-100 bg-gray-50 flex justify-between items-center gap-4">
-                        <h2 className="font-semibold text-gray-700 whitespace-nowrap">
+                <div className="lg:col-span-3 bg-white rounded-xl shadow-sm border border-surface-100 flex flex-col overflow-hidden">
+                    <div className="p-4 border-b border-surface-100 bg-surface-10 flex justify-between items-center gap-4">
+                        <h2 className="font-semibold text-surface-700 whitespace-nowrap">
                             {selectedListId ? savedLists.find(l => l.id === selectedListId)?.name : 'Preview Contacts'}
                         </h2>
                         {contacts.length > 0 && (
@@ -299,30 +301,30 @@ const ContactManager = () => {
                     <div className="flex-1 overflow-auto">
                         {filteredContacts.length > 0 ? (
                             <table className="w-full text-left">
-                                <thead className="bg-gray-50 sticky top-0">
+                                <thead className="bg-surface-10 sticky top-0">
                                     <tr>
                                         {Object.keys(contacts[0]).map((header) => (
-                                            <th key={header} className="px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            <th key={header} className="px-6 py-3 text-xs font-medium text-surface-500 uppercase tracking-wider">
                                                 {header}
                                             </th>
                                         ))}
-                                        <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider w-10">
+                                        <th className="px-6 py-3 text-xs font-medium text-surface-500 uppercase tracking-wider w-10">
                                             Actions
                                         </th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-100">
                                     {filteredContacts.map((contact, idx) => (
-                                        <tr key={idx} className="hover:bg-gray-50 group">
+                                        <tr key={idx} className="hover:bg-surface-10 group">
                                             {Object.values(contact).map((value, i) => (
-                                                <td key={i} className="px-6 py-3 text-sm text-gray-700 whitespace-nowrap">
+                                                <td key={i} className="px-6 py-3 text-body text-surface-700 whitespace-nowrap">
                                                     {value}
                                                 </td>
                                             ))}
-                                            <td className="px-6 py-3 text-sm text-gray-700 whitespace-nowrap text-right">
+                                            <td className="px-6 py-3 text-body text-surface-700 whitespace-nowrap text-right">
                                                 <button
                                                     onClick={() => deleteContact(idx)}
-                                                    className="text-gray-400 hover:text-red-600 transition-colors opacity-0 group-hover:opacity-100"
+                                                    className="text-surface-400 hover:text-error-600 transition-colors opacity-0 group-hover:opacity-100"
                                                     title="Delete Contact"
                                                 >
                                                     <Trash2 size={16} />
@@ -333,7 +335,7 @@ const ContactManager = () => {
                                 </tbody>
                             </table>
                         ) : (
-                            <div className="h-full flex flex-col items-center justify-center text-gray-400 p-8">
+                            <div className="h-full flex flex-col items-center justify-center text-surface-400 p-8">
                                 <Users size={48} className="mb-4 opacity-20" />
                                 <p>{contacts.length > 0 ? 'No contacts match your search.' : 'Select a list or upload a CSV to view contacts.'}</p>
                             </div>

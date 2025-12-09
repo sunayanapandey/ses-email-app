@@ -3,6 +3,7 @@ import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../services/api';
 import { Mail, Lock, LogIn, AlertCircle } from 'lucide-react';
+import Button from '../components/Button';
 
 const Login = () => {
     const [email, setEmail] = useState('');
@@ -52,8 +53,8 @@ const Login = () => {
                     <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-primary-600 to-purple-600 rounded-2xl mb-4">
                         <Mail className="text-white" size={32} />
                     </div>
-                    <h1 className="text-3xl font-bold text-gray-900">Welcome Back</h1>
-                    <p className="text-gray-600 mt-2">Sign in to your email campaign dashboard</p>
+                    <h1 className="text-h1 text-surface-900">Welcome Back</h1>
+                    <p className="text-surface-600 mt-2">Sign in to your email campaign dashboard</p>
                 </div>
 
                 {/* Login Card */}
@@ -69,7 +70,7 @@ const Login = () => {
 
                         {/* Email Field */}
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                            <label className="block text-h6 text-surface-700 mb-2">
                                 Email Address
                             </label>
                             <div className="relative">
@@ -89,7 +90,7 @@ const Login = () => {
 
                         {/* Password Field */}
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                            <label className="block text-h6 text-surface-700 mb-2">
                                 Password
                             </label>
                             <div className="relative">
@@ -108,28 +109,21 @@ const Login = () => {
                         </div>
 
                         {/* Submit Button */}
-                        <button
+                        <Button
                             type="submit"
                             disabled={loading}
-                            className="w-full bg-gradient-to-r from-primary-600 to-purple-600 text-white py-3 rounded-lg font-semibold hover:from-primary-700 hover:to-purple-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                            loading={loading}
+                            icon={LogIn}
+                            className="w-full justify-center"
+                            size="lg"
                         >
-                            {loading ? (
-                                <>
-                                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                                    Signing in...
-                                </>
-                            ) : (
-                                <>
-                                    <LogIn size={20} />
-                                    Sign In
-                                </>
-                            )}
-                        </button>
+                            Sign In
+                        </Button>
                     </form>
 
                     {/* Register Link */}
                     <div className="mt-6 text-center">
-                        <p className="text-sm text-gray-600">
+                        <p className="text-body text-surface-600">
                             Don't have an account?{' '}
                             <Link to="/register" className="text-primary-600 hover:text-primary-700 font-semibold">
                                 Sign up

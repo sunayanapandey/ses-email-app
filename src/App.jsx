@@ -14,6 +14,7 @@ import Register from './pages/Register';
 
 // Components
 import Sidebar from './components/Sidebar';
+import ButtonExamples from './components/ButtonExamples';
 
 function App() {
   return (
@@ -37,6 +38,7 @@ function App() {
                     <Route path="/compose" element={<EmailComposer />} />
                     <Route path="/contacts" element={<ContactManager />} />
                     <Route path="/stats" element={<CampaignStats />} />
+                    <Route path="/buttons" element={<ButtonExamples />} />
                   </Routes>
                 </main>
               </div>

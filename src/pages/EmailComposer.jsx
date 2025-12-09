@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Save, Send, Layout, FileText, Eye, X, Upload, CheckCircle, AlertCircle, Edit2, Trash2 } from 'lucide-react';
 import { api } from '../services/api';
 import RichTextEditor from '../components/RichTextEditor';
+import Button from '../components/Button';
 
 const EmailComposer = () => {
     const [subject, setSubject] = useState('');
@@ -279,29 +280,29 @@ const EmailComposer = () => {
         <div className="p-8 max-w-6xl mx-auto h-full flex flex-col">
             <div className="mb-6 flex justify-between items-center">
                 <div>
-                    <h1 className="text-3xl font-bold text-gray-900">Email Composer</h1>
-                    <p className="text-gray-500 mt-1">Design your email campaigns.</p>
+                    <h1 className="text-h1 text-surface-900">Email Composer</h1>
+                    <p className="text-surface-500 mt-1">Design your email campaigns.</p>
                 </div>
                 <div className="flex gap-3">
-                    <button
+                    <Button
+                        variant="secondary"
                         onClick={() => {
                             setEditingTemplateId(null);
                             setNewTemplateName('');
                             setShowSaveModal(true);
                         }}
-                        className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                        icon={Save}
                     >
-                        <Save size={18} />
                         Save Template
-                    </button>
-                    <button
+                    </Button>
+                    <Button
                         onClick={handleSendCampaign}
                         disabled={sending}
-                        className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        loading={sending}
+                        icon={Send}
                     >
-                        <Send size={18} />
                         {sending ? 'Sending...' : 'Send Campaign'}
-                    </button>
+                    </Button>
                 </div>
             </div>
 
@@ -324,7 +325,7 @@ const EmailComposer = () => {
                 <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
                     <div className="bg-white rounded-xl shadow-lg p-6 w-full max-w-md">
                         <div className="flex justify-between items-center mb-4">
-                            <h3 className="text-lg font-bold text-gray-900">
+                            <h3 className="text-h3 text-surface-900">
                                 {editingTemplateId ? 'Edit Template' : 'Save as Template'}
                             </h3>
                             <button
@@ -333,7 +334,7 @@ const EmailComposer = () => {
                                     setEditingTemplateId(null);
                                     setNewTemplateName('');
                                 }}
-                                className="text-gray-500 hover:text-gray-700"
+                                className="text-surface-500 hover:text-surface-700"
                             >
                                 <X size={20} />
                             </button>
@@ -348,22 +349,21 @@ const EmailComposer = () => {
                             autoFocus
                         />
                         <div className="flex gap-3 justify-end">
-                            <button
+                            <Button
+                                variant="ghost"
                                 onClick={() => {
                                     setShowSaveModal(false);
                                     setEditingTemplateId(null);
                                     setNewTemplateName('');
                                 }}
-                                className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
                             >
                                 Cancel
-                            </button>
-                            <button
+                            </Button>
+                            <Button
                                 onClick={handleSaveTemplate}
-                                className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
                             >
                                 {editingTemplateId ? 'Update' : 'Save'}
-                            </button>
+                            </Button>
                         </div>
                     </div>
                 </div>
@@ -373,7 +373,7 @@ const EmailComposer = () => {
                 {/* Main Editor Area */}
                 <div className="col-span-8 flex flex-col gap-4">
                     {/* Campaign Name */}
-                    <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
+                    <div className="bg-white p-4 rounded-xl shadow-sm border border-surface-100">
                         <input
                             type="text"
                             value={campaignName}
@@ -384,8 +384,8 @@ const EmailComposer = () => {
                     </div>
 
                     {/* Sender Email Selector */}
-                    <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <div className="bg-white p-4 rounded-xl shadow-sm border border-surface-100">
+                        <label className="block text-h6 text-surface-700 mb-2">
                             Sender Email
                         </label>
                         <select
@@ -404,14 +404,14 @@ const EmailComposer = () => {
                             </p>
                         )}
                         {verifiedEmails.length > 0 && (
-                            <p className="text-xs text-gray-500 mt-2">
+                            <p className="text-caption text-surface-500 mt-2">
                                 Emails will be sent from this address
                             </p>
                         )}
                     </div>
 
                     {/* Subject Line */}
-                    <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
+                    <div className="bg-white p-4 rounded-xl shadow-sm border border-surface-100">
                         <input
                             type="text"
                             value={subject}
@@ -422,15 +422,15 @@ const EmailComposer = () => {
                     </div>
 
                     {/* Email Content Editor */}
-                    <div className="bg-white rounded-xl shadow-sm border border-gray-100 flex-1 flex flex-col overflow-hidden">
-                        <div className="border-b border-gray-100 p-2 flex gap-2 bg-gray-50">
+                    <div className="bg-white rounded-xl shadow-sm border border-surface-100 flex-1 flex flex-col overflow-hidden">
+                        <div className="border-b border-surface-100 p-2 flex gap-2 bg-surface-10">
                             {/* Editor Mode Toggle */}
                             <button
                                 onClick={() => {
                                     setEditorMode('rich');
                                     setViewMode('edit');
                                 }}
-                                className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${editorMode === 'rich' ? 'bg-white shadow-sm text-primary-600' : 'text-gray-600 hover:bg-gray-200'
+                                className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-h6 transition-colors ${editorMode === 'rich' ? 'bg-white shadow-sm text-primary-600' : 'text-surface-600 hover:bg-gray-200'
                                     }`}
                             >
                                 <FileText size={16} />
@@ -438,7 +438,7 @@ const EmailComposer = () => {
                             </button>
                             <button
                                 onClick={() => setEditorMode('html')}
-                                className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${editorMode === 'html' ? 'bg-white shadow-sm text-primary-600' : 'text-gray-600 hover:bg-gray-200'
+                                className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-h6 transition-colors ${editorMode === 'html' ? 'bg-white shadow-sm text-primary-600' : 'text-surface-600 hover:bg-gray-200'
                                     }`}
                             >
                                 <FileText size={16} />
@@ -451,7 +451,7 @@ const EmailComposer = () => {
                                     <div className="border-l border-gray-300 mx-2"></div>
                                     <button
                                         onClick={() => setViewMode('edit')}
-                                        className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${viewMode === 'edit' ? 'bg-white shadow-sm text-primary-600' : 'text-gray-600 hover:bg-gray-200'
+                                        className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-h6 transition-colors ${viewMode === 'edit' ? 'bg-white shadow-sm text-primary-600' : 'text-surface-600 hover:bg-gray-200'
                                             }`}
                                     >
                                         <FileText size={16} />
@@ -459,7 +459,7 @@ const EmailComposer = () => {
                                     </button>
                                     <button
                                         onClick={() => setViewMode('preview')}
-                                        className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${viewMode === 'preview' ? 'bg-white shadow-sm text-primary-600' : 'text-gray-600 hover:bg-gray-200'
+                                        className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-h6 transition-colors ${viewMode === 'preview' ? 'bg-white shadow-sm text-primary-600' : 'text-surface-600 hover:bg-gray-200'
                                             }`}
                                     >
                                         <Eye size={16} />
@@ -489,7 +489,7 @@ const EmailComposer = () => {
                                                         e.target.value = '';
                                                     }
                                                 }}
-                                                className="px-2 py-1.5 border border-gray-300 rounded-md text-sm bg-white text-gray-700 hover:border-primary-500 focus:outline-none focus:border-primary-500"
+                                                className="px-2 py-1.5 border border-gray-300 rounded-md text-sm bg-white text-surface-700 hover:border-primary-500 focus:outline-none focus:border-primary-500"
                                                 defaultValue=""
                                             >
                                                 <option value="" disabled>Personalize</option>
@@ -530,13 +530,13 @@ const EmailComposer = () => {
                     </div>
 
                     {/* CSV Upload Section */}
-                    <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
+                    <div className="bg-white p-4 rounded-xl shadow-sm border border-surface-100">
                         <div className="flex items-center justify-between">
                             <div className="flex items-center gap-3">
                                 <Upload size={20} className="text-primary-600" />
                                 <div>
-                                    <p className="font-medium text-gray-900">Recipient List (CSV)</p>
-                                    <p className="text-xs text-gray-500">Format: email,name</p>
+                                    <p className="font-medium text-surface-900">Recipient List (CSV)</p>
+                                    <p className="text-caption text-surface-500">Format: email,name</p>
                                 </div>
                             </div>
                             <div className="flex items-center gap-3">
@@ -555,12 +555,17 @@ const EmailComposer = () => {
                                 />
                                 <label
                                     htmlFor="csv-file-upload"
-                                    className="px-4 py-2 bg-primary-600 text-white rounded-lg cursor-pointer hover:bg-primary-700 transition-colors text-sm font-medium"
                                 >
-                                    {csvFile ? 'Change File' : 'Upload CSV'}
+                                    <Button
+                                        as="span"
+                                        variant={csvFile ? "secondary" : "primary"}
+                                    >
+                                        {csvFile ? 'Change File' : 'Upload CSV'}
+                                    </Button>
                                 </label>
                                 {csvFile && (
-                                    <button
+                                    <Button
+                                        variant="secondary"
                                         onClick={async () => {
                                             const name = prompt('Enter a name for this contact list:');
                                             if (name) {
@@ -595,20 +600,18 @@ const EmailComposer = () => {
                                                 }
                                             }
                                         }}
-                                        className="px-4 py-2 text-primary-600 hover:bg-primary-50 rounded-lg border border-primary-200 transition-colors text-sm font-medium flex items-center gap-2"
-                                        title="Save as List"
+                                        icon={Save}
                                     >
-                                        <Save size={16} />
                                         Save List
-                                    </button>
+                                    </Button>
                                 )}
                             </div>
                         </div>
 
                         {/* Saved Lists Dropdown */}
                         {savedLists.length > 0 && (
-                            <div className="mt-4 pt-4 border-t border-gray-100">
-                                <label className="block text-sm font-medium text-gray-700 mb-2">Load Saved List</label>
+                            <div className="mt-4 pt-4 border-t border-surface-100">
+                                <label className="block text-h6 text-surface-700 mb-2">Load Saved List</label>
                                 <select
                                     onChange={async (e) => {
                                         const listId = e.target.value;
@@ -650,8 +653,8 @@ const EmailComposer = () => {
 
                 {/* Sidebar / Templates */}
                 <div className="col-span-4 flex flex-col gap-4">
-                    <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 h-full">
-                        <h2 className="font-bold text-gray-900 mb-4 flex items-center gap-2">
+                    <div className="bg-white p-4 rounded-xl shadow-sm border border-surface-100 h-full">
+                        <h2 className="font-bold text-surface-900 mb-4 flex items-center gap-2">
                             <Layout size={20} className="text-primary-600" />
                             Templates
                         </h2>
@@ -662,8 +665,8 @@ const EmailComposer = () => {
                                     className="p-3 border border-gray-200 rounded-lg hover:border-primary-500 transition-all group relative"
                                 >
                                     <div onClick={() => loadTemplate(template)} className="cursor-pointer">
-                                        <h3 className="font-medium text-gray-900 group-hover:text-primary-700 pr-16">{template.name}</h3>
-                                        <p className="text-xs text-gray-500 mt-1 truncate">
+                                        <h3 className="font-medium text-surface-900 group-hover:text-primary-700 pr-16">{template.name}</h3>
+                                        <p className="text-caption text-surface-500 mt-1 truncate">
                                             {template.content.replace(/<[^>]*>/g, '')}
                                         </p>
                                     </div>

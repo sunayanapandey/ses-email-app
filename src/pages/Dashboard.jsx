@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { Mail, Users, BarChart as BarChartIcon, Plus, ArrowRight, TrendingUp, Send, MailOpen, Coins, RefreshCw } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from 'recharts';
 import { api } from '../services/api';
+import Button from '../components/Button';
 
 const Dashboard = () => {
     const [balance, setBalance] = useState(null);
@@ -95,8 +96,8 @@ const Dashboard = () => {
         <Link to={to} className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition-shadow">
             <div className="flex justify-between items-start">
                 <div>
-                    <p className="text-sm font-medium text-gray-500">{label}</p>
-                    <h3 className="text-2xl font-bold text-gray-900 mt-1">
+                    <p className="text-h6 text-surface-500">{label}</p>
+                    <h3 className="text-h2 text-surface-900 mt-1">
                         {loading ? (
                             <span className="inline-block w-20 h-8 bg-gray-200 animate-pulse rounded"></span>
                         ) : (
@@ -125,24 +126,24 @@ const Dashboard = () => {
             {/* Header */}
             <div className="flex justify-between items-center mb-8">
                 <div>
-                    <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
-                    <p className="text-gray-500 mt-1">Welcome back! Here's your campaign overview.</p>
+                    <h1 className="text-h1 text-surface-900">Dashboard</h1>
+                    <p className="text-surface-500 mt-1">Welcome back! Here's your campaign overview.</p>
                 </div>
                 <div className="flex gap-3">
-                    <button
+                    <Button
+                        variant="secondary"
                         onClick={loadData}
-                        className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors flex items-center gap-2"
-                        title="Refresh data"
+                        icon={RefreshCw}
+                        isLoading={loading}
                     >
-                        <RefreshCw size={18} />
-                    </button>
-                    <Link
+                        Refresh
+                    </Button>
+                    <Button
                         to="/compose"
-                        className="bg-primary-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-primary-700 transition-colors flex items-center gap-2"
+                        icon={Plus}
                     >
-                        <Plus size={20} />
                         New Campaign
-                    </Link>
+                    </Button>
                 </div>
             </div>
 
@@ -175,15 +176,15 @@ const Dashboard = () => {
                 <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
                     <div className="flex justify-between items-start">
                         <div>
-                            <p className="text-sm font-medium text-gray-500">Email Balance</p>
-                            <h3 className="text-2xl font-bold text-gray-900 mt-1">
+                            <p className="text-h6 text-surface-500">Email Balance</p>
+                            <h3 className="text-h2 text-surface-900 mt-1">
                                 {loading ? (
                                     <span className="inline-block w-20 h-8 bg-gray-200 animate-pulse rounded"></span>
                                 ) : (
                                     balance?.toLocaleString() || '0'
                                 )}
                             </h3>
-                            <p className="text-xs text-gray-400 mt-1">Available credits</p>
+                            <p className="text-caption text-surface-400 mt-1">Available credits</p>
                         </div>
                         <div className="p-3 rounded-lg bg-amber-500 bg-opacity-10">
                             <Coins size={24} className="text-amber-500" />
@@ -196,7 +197,7 @@ const Dashboard = () => {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
                 {/* Campaign Performance */}
                 <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-                    <h2 className="text-lg font-bold text-gray-900 mb-4">Campaign Performance</h2>
+                    <h2 className="text-h3 text-surface-900 mb-4">Campaign Performance</h2>
                     {campaignPerformance.length > 0 ? (
                         <ResponsiveContainer width="100%" height={250}>
                             <BarChart data={campaignPerformance}>
@@ -210,7 +211,7 @@ const Dashboard = () => {
                             </BarChart>
                         </ResponsiveContainer>
                     ) : (
-                        <div className="h-64 flex items-center justify-center text-gray-400">
+                        <div className="h-64 flex items-center justify-center text-surface-400">
                             <div className="text-center">
                                 <BarChartIcon size={48} className="mx-auto mb-2 opacity-20" />
                                 <p>No campaigns yet</p>
@@ -224,7 +225,7 @@ const Dashboard = () => {
 
                 {/* Weekly Activity */}
                 <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-                    <h2 className="text-lg font-bold text-gray-900 mb-4">Weekly Activity</h2>
+                    <h2 className="text-h3 text-surface-900 mb-4">Weekly Activity</h2>
                     <ResponsiveContainer width="100%" height={250}>
                         <LineChart data={weeklyActivity}>
                             <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
@@ -241,7 +242,7 @@ const Dashboard = () => {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 {/* Email Status */}
                 <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-                    <h2 className="text-lg font-bold text-gray-900 mb-4">Email Status</h2>
+                    <h2 className="text-h3 text-surface-900 mb-4">Email Status</h2>
                     {totalEmailsSent > 0 ? (
                         <ResponsiveContainer width="100%" height={200}>
                             <PieChart>
@@ -262,7 +263,7 @@ const Dashboard = () => {
                             </PieChart>
                         </ResponsiveContainer>
                     ) : (
-                        <div className="h-48 flex items-center justify-center text-gray-400">
+                        <div className="h-48 flex items-center justify-center text-surface-400">
                             No data available
                         </div>
                     )}
@@ -271,9 +272,9 @@ const Dashboard = () => {
                             <div key={idx} className="flex items-center justify-between text-sm">
                                 <div className="flex items-center gap-2">
                                     <div className="w-3 h-3 rounded-full" style={{ backgroundColor: item.color }}></div>
-                                    <span className="text-gray-600">{item.name}</span>
+                                    <span className="text-surface-600">{item.name}</span>
                                 </div>
-                                <span className="font-semibold text-gray-900">{item.value.toLocaleString()}</span>
+                                <span className="font-semibold text-surface-900">{item.value.toLocaleString()}</span>
                             </div>
                         ))}
                     </div>
@@ -281,17 +282,17 @@ const Dashboard = () => {
 
                 {/* Recent Campaigns */}
                 <div className="lg:col-span-2 bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-                    <h2 className="text-lg font-bold text-gray-900 mb-4">Recent Campaigns</h2>
+                    <h2 className="text-h3 text-surface-900 mb-4">Recent Campaigns</h2>
                     {campaigns.length > 0 ? (
                         <div className="space-y-3">
                             {campaigns.slice(0, 6).map((campaign, idx) => (
-                                <div key={idx} className="flex items-center justify-between p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
+                                <div key={idx} className="flex items-center justify-between p-3 border border-gray-200 rounded-lg hover:bg-surface-10 transition-colors">
                                     <div className="flex-1 min-w-0">
-                                        <p className="font-medium text-gray-900 truncate">{campaign.name}</p>
-                                        <p className="text-sm text-gray-500 truncate">{campaign.subject}</p>
+                                        <p className="font-medium text-surface-900 truncate">{campaign.name}</p>
+                                        <p className="text-caption text-surface-600 truncate">{campaign.subject}</p>
                                     </div>
                                     <div className="text-right ml-4">
-                                        <p className="text-sm font-semibold text-gray-900">
+                                        <p className="text-h6 text-surface-900">
                                             {new Date(campaign.createdAt).toLocaleDateString()}
                                         </p>
                                         <Link
@@ -305,7 +306,7 @@ const Dashboard = () => {
                             ))}
                         </div>
                     ) : (
-                        <div className="h-full flex items-center justify-center text-gray-400 py-12">
+                        <div className="h-full flex items-center justify-center text-surface-400 py-12">
                             <div className="text-center">
                                 <Mail size={48} className="mx-auto mb-2 opacity-20" />
                                 <p>No campaigns yet</p>

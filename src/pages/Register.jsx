@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { api } from '../services/api';
 import { Mail, Lock, UserPlus, AlertCircle } from 'lucide-react';
+import Button from '../components/Button';
 
 const Register = () => {
     const [formData, setFormData] = useState({
@@ -75,8 +76,8 @@ const Register = () => {
                     <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-purple-600 to-primary-600 rounded-2xl mb-4">
                         <Mail className="text-white" size={32} />
                     </div>
-                    <h1 className="text-3xl font-bold text-gray-900">Create Account</h1>
-                    <p className="text-gray-600 mt-2">Join us to start your email campaigns</p>
+                    <h1 className="text-h1 text-surface-900">Create Account</h1>
+                    <p className="text-surface-600 mt-2">Join us to start your email campaigns</p>
                 </div>
 
                 {/* Register Card */}
@@ -92,7 +93,7 @@ const Register = () => {
 
                         {/* Email Field */}
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                            <label className="block text-h6 text-surface-700 mb-2">
                                 Email Address
                             </label>
                             <div className="relative">
@@ -113,7 +114,7 @@ const Register = () => {
 
                         {/* Password Field */}
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                            <label className="block text-h6 text-surface-700 mb-2">
                                 Password
                             </label>
                             <div className="relative">
@@ -134,7 +135,7 @@ const Register = () => {
 
                         {/* Confirm Password Field */}
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                            <label className="block text-h6 text-surface-700 mb-2">
                                 Confirm Password
                             </label>
                             <div className="relative">
@@ -154,28 +155,21 @@ const Register = () => {
                         </div>
 
                         {/* Submit Button */}
-                        <button
+                        <Button
                             type="submit"
                             disabled={loading}
-                            className="w-full bg-gradient-to-r from-purple-600 to-primary-600 text-white py-3 rounded-lg font-semibold hover:from-purple-700 hover:to-primary-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                            loading={loading}
+                            icon={UserPlus}
+                            className="w-full justify-center"
+                            size="lg"
                         >
-                            {loading ? (
-                                <>
-                                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                                    Creating account...
-                                </>
-                            ) : (
-                                <>
-                                    <UserPlus size={20} />
-                                    Create Account
-                                </>
-                            )}
-                        </button>
+                            Create Account
+                        </Button>
                     </form>
 
                     {/* Login Link */}
                     <div className="mt-6 text-center">
-                        <p className="text-sm text-gray-600">
+                        <p className="text-body text-surface-600">
                             Already have an account?{' '}
                             <Link to="/login" className="text-purple-600 hover:text-purple-700 font-semibold">
                                 Sign in
