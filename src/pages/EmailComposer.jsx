@@ -31,6 +31,9 @@ const EmailComposer = () => {
     const [showSaveListModal, setShowSaveListModal] = useState(false);
     const [newListName, setNewListName] = useState('');
 
+    // Delete Template Modal State
+    const [deleteTemplateModal, setDeleteTemplateModal] = useState({ show: false, template: null });
+
     useEffect(() => {
         // Load verified emails from domains
         loadVerifiedEmails();
@@ -163,14 +166,18 @@ const EmailComposer = () => {
             alert("System templates cannot be deleted.");
             return;
         }
-        if (confirm('Are you sure you want to delete this template?')) {
-            try {
-                await api.deleteTemplate(templateId);
-                setTemplates(templates.filter(t => t.id !== templateId));
-            } catch (error) {
-                console.error('Error deleting template:', error);
-                alert('Failed to delete template. Please try again.');
-            }
+        setDeleteTemplateModal({ show: true, template });
+    };
+
+    const confirmDeleteTemplate = async () => {
+        try {
+            await api.deleteTemplate(deleteTemplateModal.template.id);
+            setTemplates(templates.filter(t => t.id !== deleteTemplateModal.template.id));
+        } catch (error) {
+            console.error('Error deleting template:', error);
+            alert('Failed to delete template. Please try again.');
+        } finally {
+            setDeleteTemplateModal({ show: false, template: null });
         }
     };
 
@@ -648,8 +655,8 @@ const EmailComposer = () => {
                                 <label
                                     htmlFor="csv-file-upload"
                                     className={`inline-flex items-center justify-center gap-2 font-normal text-[14px] leading-[18px] text-center transition-all duration-200 rounded-[4px] focus:outline-none focus:ring-2 focus:ring-offset-1 px-[16px] py-[4px] min-w-[135px] h-[32px] cursor-pointer ${csvFile
-                                            ? 'bg-surface-10 text-surface-900 border border-surface-200 hover:border-primary-300'
-                                            : 'bg-primary-500 text-white border border-primary-500 hover:bg-primary-300 hover:border-primary-300 shadow-sm'
+                                        ? 'bg-surface-10 text-surface-900 border border-surface-200 hover:border-primary-300'
+                                        : 'bg-primary-500 text-white border border-primary-500 hover:bg-primary-300 hover:border-primary-300 shadow-sm'
                                         }`}
                                 >
                                     {csvFile ? 'Change File' : 'Upload CSV'}
@@ -755,6 +762,34 @@ const EmailComposer = () => {
                     </div>
                 </div>
             </div>
+
+            {/* Delete Template Confirmation Modal */}
+            {deleteTemplateModal.show && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                    <div className="bg-white rounded-xl shadow-xl max-w-md w-full mx-4 p-6">
+                        <h3 className="text-h4 text-surface-900 mb-2">Delete Template</h3>
+                        <p className="text-surface-600 mb-6">
+                            Are you sure you want to delete <span className="font-semibold">{deleteTemplateModal.template?.name}</span>?
+                            <br />
+                            This action cannot be undone.
+                        </p>
+                        <div className="flex gap-3 justify-end">
+                            <Button
+                                variant="secondary"
+                                onClick={() => setDeleteTemplateModal({ show: false, template: null })}
+                            >
+                                Cancel
+                            </Button>
+                            <Button
+                                variant="destructive"
+                                onClick={confirmDeleteTemplate}
+                            >
+                                Delete
+                            </Button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
