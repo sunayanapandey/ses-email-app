@@ -71,10 +71,13 @@ const Sidebar = () => {
             {/* Bottom Profile Section */}
             <div className="border-t border-surface-200 p-4 mt-auto">
                 <div className="flex flex-col gap-1">
-                    <button className="flex items-center gap-3 px-4 py-2 text-sm font-medium text-surface-600 hover:text-surface-900 hover:bg-surface-50 rounded-lg transition-colors w-full text-left">
+                    <Link
+                        to="/profile"
+                        className="flex items-center gap-3 px-4 py-2 text-sm font-medium text-surface-600 hover:text-surface-900 hover:bg-surface-50 rounded-lg transition-colors w-full text-left"
+                    >
                         <User size={18} className="text-surface-400" />
                         <span>Profile</span>
-                    </button>
+                    </Link>
                     <button
                         onClick={logout}
                         className="flex items-center gap-3 px-4 py-2 text-sm font-medium text-surface-600 hover:text-error-600 hover:bg-error-50 rounded-lg transition-colors w-full text-left"
@@ -82,17 +85,6 @@ const Sidebar = () => {
                         <LogOut size={18} className="text-surface-400" />
                         <span>Logout</span>
                     </button>
-                </div>
-
-                {/* User Info Mini */}
-                <div className="mt-4 px-4 flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-full bg-primary-100 flex items-center justify-center text-primary-600 font-bold text-xs">
-                        {user.name ? user.name.charAt(0).toUpperCase() : 'U'}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                        <p className="text-xs font-medium text-surface-900 truncate">{user.name}</p>
-                        <p className="text-[10px] text-surface-500 truncate">{user.email}</p>
-                    </div>
                 </div>
             </div>
         </aside>

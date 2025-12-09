@@ -13,6 +13,7 @@ import ContactManager from './pages/ContactManager';
 import CampaignStats from './pages/CampaignStats';
 import Login from './pages/Login';
 import Register from './pages/Register';
+import Profile from './pages/Profile';
 
 // Components
 import Sidebar from './components/Sidebar';
@@ -87,6 +88,7 @@ function AppContent() {
                   <Route path="/compose" element={<EmailComposer />} />
                   <Route path="/contacts" element={<ContactManager />} />
                   <Route path="/stats" element={<CampaignStats />} />
+                  <Route path="/profile" element={<Profile />} />
                   <Route path="/buttons" element={<ButtonExamples />} />
                 </Routes>
               </main>
