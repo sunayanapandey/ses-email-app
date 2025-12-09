@@ -1,14 +1,15 @@
 import React, { useRef, useEffect, useState } from 'react';
 import {
     Bold, Italic, Underline, AlignLeft, AlignCenter, AlignRight, AlignJustify,
-    List, ListOrdered, Link2, Image, Type, Highlighter
+    List, ListOrdered, Link2, Image, Type, Highlighter, X
 } from 'lucide-react';
+import Button from './Button';
 
 const RichTextEditor = ({ value, onChange, placeholder = 'Start typing your email content...' }) => {
     const editorRef = useRef(null);
-    const [showLinkDialog, setShowLinkDialog] = useState(false);
-    const [showImageDialog, setShowImageDialog] = useState(false);
     const [showButtonDialog, setShowButtonDialog] = useState(false);
+    const [buttonText, setButtonText] = useState('Click Here');
+    const [buttonUrl, setButtonUrl] = useState('https://');
     const [textColor, setTextColor] = useState('#000000');
     const [bgColor, setBgColor] = useState('#ffff00');
     const textColorInputRef = useRef(null);
@@ -43,7 +44,6 @@ const RichTextEditor = ({ value, onChange, placeholder = 'Start typing your emai
         const url = prompt('Enter URL:', 'https://');
         if (url) {
             execCommand('createLink', url);
-            // Trigger onChange to update the content
             handleInput();
         }
     };
@@ -55,15 +55,42 @@ const RichTextEditor = ({ value, onChange, placeholder = 'Start typing your emai
         }
     };
 
+    const openButtonDialog = () => {
+        setButtonText('Click Here');
+        setButtonUrl('https://');
+        setShowButtonDialog(true);
+    };
+
     const insertButton = () => {
-        const text = prompt('Enter button text:', 'Click Here');
-        if (text) {
-            const href = prompt('Enter button URL:', '#');
-            if (href) {
-                const buttonHtml = `<a href="${href}" style="display: inline-block; padding: 12px 24px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; text-decoration: none; border-radius: 8px; font-weight: 600; margin: 8px 4px;">${text}</a>`;
-                execCommand('insertHTML', buttonHtml);
+        if (!buttonText.trim() || !buttonUrl.trim()) {
+            alert('Please enter both button text and URL');
+            return;
+        }
+
+        const buttonHtml = `<a href="${buttonUrl}" style="display: inline-block; padding: 4px 16px; min-width: 135px; height: 32px; background: #E6509B; color: white; text-decoration: none; border-radius: 4px; font-weight: 400; font-size: 14px; line-height: 24px; text-align: center; margin: 8px 4px; border: 1px solid #E6509B; transition: all 0.2s;" onmouseover="this.style.background='#F687B3'" onmouseout="this.style.background='#E6509B'">${buttonText}</a>&nbsp;`;
+
+        if (editorRef.current) {
+            editorRef.current.focus();
+            const selection = window.getSelection();
+            if (selection.rangeCount > 0) {
+                const range = selection.getRangeAt(0);
+                const tempEl = document.createElement('div');
+                tempEl.innerHTML = buttonHtml;
+                const frag = document.createDocumentFragment();
+                let node;
+                while ((node = tempEl.firstChild)) {
+                    frag.appendChild(node);
+                }
+                range.deleteContents();
+                range.insertNode(frag);
+                range.collapse(false);
+                selection.removeAllRanges();
+                selection.addRange(range);
+                handleInput();
             }
         }
+
+        setShowButtonDialog(false);
     };
 
     const setFontSize = (size) => {
@@ -81,7 +108,69 @@ const RichTextEditor = ({ value, onChange, placeholder = 'Start typing your emai
     };
 
     return (
-        <div className="rich-text-editor-wrapper h-full flex flex-col">
+        <div className="rich-text-editor-wrapper h-full flex flex-col relative">
+            {/* CTA Button Modal Dialog */}
+            {showButtonDialog && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setShowButtonDialog(false)}>
+                    <div className="bg-white rounded-lg p-6 w-full max-w-md shadow-xl" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex items-center justify-between mb-4">
+                            <h3 className="text-h3 text-surface-900">Insert CTA Button</h3>
+                            <button
+                                onClick={() => setShowButtonDialog(false)}
+                                className="p-1 hover:bg-gray-100 rounded"
+                                type="button"
+                            >
+                                <X size={20} />
+                            </button>
+                        </div>
+
+                        <div className="space-y-4">
+                            <div>
+                                <label className="block text-h6 text-surface-700 mb-2">
+                                    Button Text
+                                </label>
+                                <input
+                                    type="text"
+                                    value={buttonText}
+                                    onChange={(e) => setButtonText(e.target.value)}
+                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none"
+                                    placeholder="Click Here"
+                                    onKeyPress={(e) => e.key === 'Enter' && insertButton()}
+                                    autoFocus
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-h6 text-surface-700 mb-2">
+                                    Button URL
+                                </label>
+                                <input
+                                    type="url"
+                                    value={buttonUrl}
+                                    onChange={(e) => setButtonUrl(e.target.value)}
+                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none"
+                                    placeholder="https://example.com"
+                                    onKeyPress={(e) => e.key === 'Enter' && insertButton()}
+                                />
+                            </div>
+
+                            <div className="flex gap-3 justify-end mt-6">
+                                <Button
+                                    variant="ghost"
+                                    onClick={() => setShowButtonDialog(false)}
+                                    type="button"
+                                >
+                                    Cancel
+                                </Button>
+                                <Button onClick={insertButton} type="button">
+                                    Insert Button
+                                </Button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* Toolbar */}
             <div className="toolbar bg-gray-50 border-b border-gray-200 p-2 flex flex-wrap gap-1">
                 {/* Text Formatting */}
@@ -251,14 +340,14 @@ const RichTextEditor = ({ value, onChange, placeholder = 'Start typing your emai
 
                 {/* CTA Button */}
                 <div className="flex gap-1 border-r border-gray-300 pr-2">
-                    <button
-                        onClick={insertButton}
-                        className="px-3 py-1 bg-indigo-600 text-white rounded hover:bg-indigo-700 text-sm"
+                    <Button
+                        onClick={openButtonDialog}
+                        size="sm"
                         title="Insert CTA Button"
                         type="button"
                     >
-                        🔘 Button
-                    </button>
+                        + CTA
+                    </Button>
                 </div>
 
                 {/* Personalization */}
@@ -267,7 +356,7 @@ const RichTextEditor = ({ value, onChange, placeholder = 'Start typing your emai
                         onChange={(e) => {
                             if (e.target.value) {
                                 execCommand('insertText', e.target.value);
-                                e.target.value = ''; // Reset selection
+                                e.target.value = '';
                             }
                         }}
                         className="px-2 py-1 border border-gray-300 rounded text-sm bg-white text-gray-700 hover:border-indigo-500 focus:outline-none focus:border-indigo-500"
