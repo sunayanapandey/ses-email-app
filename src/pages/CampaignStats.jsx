@@ -91,7 +91,7 @@ const CampaignStats = () => {
                         <div className="lg:col-span-1">
                             <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
                                 <h3 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                                    <Clock size={18} className="text-indigo-600" />
+                                    <Clock size={18} className="text-primary-600" />
                                     Recent Campaigns
                                 </h3>
 
@@ -102,7 +102,7 @@ const CampaignStats = () => {
                                         placeholder="Search campaigns..."
                                         value={searchTerm}
                                         onChange={(e) => setSearchTerm(e.target.value)}
-                                        className="w-full pl-9 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                                        className="w-full pl-9 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                                     />
                                     <Search size={16} className="absolute left-3 top-2.5 text-gray-400" />
                                 </div>
@@ -113,7 +113,7 @@ const CampaignStats = () => {
                                             <button
                                                 key={campaign.campaignId || idx}
                                                 onClick={() => selectCampaign(campaign.campaignId)}
-                                                className="w-full text-left p-3 border border-gray-200 rounded-lg hover:border-indigo-500 hover:bg-indigo-50 transition-all"
+                                                className="w-full text-left p-3 border border-gray-200 rounded-lg hover:border-primary-500 hover:bg-primary-50 transition-all"
                                             >
                                                 <p className="font-medium text-gray-900 text-sm">
                                                     {campaign.name || campaign.campaignId || 'Unnamed Campaign'}
@@ -146,8 +146,8 @@ const CampaignStats = () => {
                     <div className={savedCampaigns.length > 0 ? 'lg:col-span-2' : 'lg:col-span-3'}>
                         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-8">
                             <div className="max-w-md mx-auto text-center">
-                                <div className="bg-indigo-100 p-4 rounded-full w-16 h-16 mx-auto mb-4 flex items-center justify-center">
-                                    <Search size={32} className="text-indigo-600" />
+                                <div className="bg-primary-100 p-4 rounded-full w-16 h-16 mx-auto mb-4 flex items-center justify-center">
+                                    <Search size={32} className="text-primary-600" />
                                 </div>
                                 <h3 className="text-xl font-semibold text-gray-900 mb-2">
                                     {savedCampaigns.length > 0 ? 'Or Enter Campaign Name' : 'Enter Campaign Name'}
@@ -171,7 +171,7 @@ const CampaignStats = () => {
                                             onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
                                             onKeyPress={(e) => e.key === 'Enter' && loadStats()}
                                             placeholder="e.g., Newsletter_Jan_2024..."
-                                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+                                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none"
                                         />
 
                                         {/* Autocomplete Dropdown */}
@@ -206,7 +206,7 @@ const CampaignStats = () => {
                                     </div>
                                     <button
                                         onClick={() => loadStats()}
-                                        className="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-medium flex items-center gap-2"
+                                        className="px-6 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors font-medium flex items-center gap-2"
                                     >
                                         <Search size={18} />
                                         Load
@@ -229,7 +229,7 @@ const CampaignStats = () => {
         return (
             <div className="p-8 max-w-6xl mx-auto">
                 <div className="text-center">
-                    <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+                    <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
                     <p className="mt-4 text-gray-500">Loading campaign analytics...</p>
                 </div>
             </div>
@@ -289,7 +289,7 @@ const CampaignStats = () => {
                     <h1 className="text-3xl font-bold text-gray-900">Campaign Analytics</h1>
                     <p className="text-gray-500 mt-2">Real-time performance metrics for your campaigns.</p>
                     {stats.fileName && (
-                        <p className="text-sm text-indigo-600 mt-1 font-mono">Campaign: {stats.fileName}</p>
+                        <p className="text-sm text-primary-600 mt-1 font-mono">Campaign: {stats.fileName}</p>
                     )}
                 </div>
                 <button
@@ -303,7 +303,7 @@ const CampaignStats = () => {
 
             {/* Key Metrics */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-                <StatCard title="Total Sent" value={stats.sent} icon={Send} color="bg-indigo-500" />
+                <StatCard title="Total Sent" value={stats.sent} icon={Send} color="bg-primary-500" />
                 <StatCard title="Opened" value={stats.opened} icon={MailOpen} color="bg-emerald-500" />
                 <StatCard title="Clicked" value={stats.clicked} icon={MousePointer} color="bg-amber-500" />
                 <StatCard title="Bounced" value={stats.bounced} icon={XCircle} color="bg-red-500" />

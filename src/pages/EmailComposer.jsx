@@ -297,7 +297,7 @@ const EmailComposer = () => {
                     <button
                         onClick={handleSendCampaign}
                         disabled={sending}
-                        className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                         <Send size={18} />
                         {sending ? 'Sending...' : 'Send Campaign'}
@@ -343,7 +343,7 @@ const EmailComposer = () => {
                             value={newTemplateName}
                             onChange={(e) => setNewTemplateName(e.target.value)}
                             placeholder="Template name..."
-                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none mb-4"
+                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none mb-4"
                             onKeyPress={(e) => e.key === 'Enter' && handleSaveTemplate()}
                             autoFocus
                         />
@@ -360,7 +360,7 @@ const EmailComposer = () => {
                             </button>
                             <button
                                 onClick={handleSaveTemplate}
-                                className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+                                className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
                             >
                                 {editingTemplateId ? 'Update' : 'Save'}
                             </button>
@@ -391,7 +391,7 @@ const EmailComposer = () => {
                         <select
                             value={senderEmail}
                             onChange={(e) => setSenderEmail(e.target.value)}
-                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none"
+                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none"
                         >
                             <option value="">Select sender email...</option>
                             {verifiedEmails.map(email => (
@@ -430,7 +430,7 @@ const EmailComposer = () => {
                                     setEditorMode('rich');
                                     setViewMode('edit');
                                 }}
-                                className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${editorMode === 'rich' ? 'bg-white shadow-sm text-indigo-600' : 'text-gray-600 hover:bg-gray-200'
+                                className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${editorMode === 'rich' ? 'bg-white shadow-sm text-primary-600' : 'text-gray-600 hover:bg-gray-200'
                                     }`}
                             >
                                 <FileText size={16} />
@@ -438,7 +438,7 @@ const EmailComposer = () => {
                             </button>
                             <button
                                 onClick={() => setEditorMode('html')}
-                                className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${editorMode === 'html' ? 'bg-white shadow-sm text-indigo-600' : 'text-gray-600 hover:bg-gray-200'
+                                className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${editorMode === 'html' ? 'bg-white shadow-sm text-primary-600' : 'text-gray-600 hover:bg-gray-200'
                                     }`}
                             >
                                 <FileText size={16} />
@@ -451,7 +451,7 @@ const EmailComposer = () => {
                                     <div className="border-l border-gray-300 mx-2"></div>
                                     <button
                                         onClick={() => setViewMode('edit')}
-                                        className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${viewMode === 'edit' ? 'bg-white shadow-sm text-indigo-600' : 'text-gray-600 hover:bg-gray-200'
+                                        className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${viewMode === 'edit' ? 'bg-white shadow-sm text-primary-600' : 'text-gray-600 hover:bg-gray-200'
                                             }`}
                                     >
                                         <FileText size={16} />
@@ -459,7 +459,7 @@ const EmailComposer = () => {
                                     </button>
                                     <button
                                         onClick={() => setViewMode('preview')}
-                                        className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${viewMode === 'preview' ? 'bg-white shadow-sm text-indigo-600' : 'text-gray-600 hover:bg-gray-200'
+                                        className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${viewMode === 'preview' ? 'bg-white shadow-sm text-primary-600' : 'text-gray-600 hover:bg-gray-200'
                                             }`}
                                     >
                                         <Eye size={16} />
@@ -489,7 +489,7 @@ const EmailComposer = () => {
                                                         e.target.value = '';
                                                     }
                                                 }}
-                                                className="px-2 py-1.5 border border-gray-300 rounded-md text-sm bg-white text-gray-700 hover:border-indigo-500 focus:outline-none focus:border-indigo-500"
+                                                className="px-2 py-1.5 border border-gray-300 rounded-md text-sm bg-white text-gray-700 hover:border-primary-500 focus:outline-none focus:border-primary-500"
                                                 defaultValue=""
                                             >
                                                 <option value="" disabled>Personalize</option>
@@ -533,7 +533,7 @@ const EmailComposer = () => {
                     <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
                         <div className="flex items-center justify-between">
                             <div className="flex items-center gap-3">
-                                <Upload size={20} className="text-indigo-600" />
+                                <Upload size={20} className="text-primary-600" />
                                 <div>
                                     <p className="font-medium text-gray-900">Recipient List (CSV)</p>
                                     <p className="text-xs text-gray-500">Format: email,name</p>
@@ -555,7 +555,7 @@ const EmailComposer = () => {
                                 />
                                 <label
                                     htmlFor="csv-file-upload"
-                                    className="px-4 py-2 bg-indigo-600 text-white rounded-lg cursor-pointer hover:bg-indigo-700 transition-colors text-sm font-medium"
+                                    className="px-4 py-2 bg-primary-600 text-white rounded-lg cursor-pointer hover:bg-primary-700 transition-colors text-sm font-medium"
                                 >
                                     {csvFile ? 'Change File' : 'Upload CSV'}
                                 </label>
@@ -595,7 +595,7 @@ const EmailComposer = () => {
                                                 }
                                             }
                                         }}
-                                        className="px-4 py-2 text-indigo-600 hover:bg-indigo-50 rounded-lg border border-indigo-200 transition-colors text-sm font-medium flex items-center gap-2"
+                                        className="px-4 py-2 text-primary-600 hover:bg-primary-50 rounded-lg border border-primary-200 transition-colors text-sm font-medium flex items-center gap-2"
                                         title="Save as List"
                                     >
                                         <Save size={16} />
@@ -633,7 +633,7 @@ const EmailComposer = () => {
                                             }
                                         }
                                     }}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-indigo-500"
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-primary-500"
                                     defaultValue=""
                                 >
                                     <option value="" disabled>Select a saved list...</option>
@@ -652,17 +652,17 @@ const EmailComposer = () => {
                 <div className="col-span-4 flex flex-col gap-4">
                     <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 h-full">
                         <h2 className="font-bold text-gray-900 mb-4 flex items-center gap-2">
-                            <Layout size={20} className="text-indigo-600" />
+                            <Layout size={20} className="text-primary-600" />
                             Templates
                         </h2>
                         <div className="space-y-3">
                             {templates.map((template) => (
                                 <div
                                     key={template.id}
-                                    className="p-3 border border-gray-200 rounded-lg hover:border-indigo-500 transition-all group relative"
+                                    className="p-3 border border-gray-200 rounded-lg hover:border-primary-500 transition-all group relative"
                                 >
                                     <div onClick={() => loadTemplate(template)} className="cursor-pointer">
-                                        <h3 className="font-medium text-gray-900 group-hover:text-indigo-700 pr-16">{template.name}</h3>
+                                        <h3 className="font-medium text-gray-900 group-hover:text-primary-700 pr-16">{template.name}</h3>
                                         <p className="text-xs text-gray-500 mt-1 truncate">
                                             {template.content.replace(/<[^>]*>/g, '')}
                                         </p>
@@ -670,10 +670,10 @@ const EmailComposer = () => {
                                     <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                                         <button
                                             onClick={(e) => editTemplate(template, e)}
-                                            className="p-1.5 hover:bg-indigo-100 rounded transition-colors"
+                                            className="p-1.5 hover:bg-primary-100 rounded transition-colors"
                                             title={template.isSystem ? "Edit (Save as new)" : "Edit template"}
                                         >
-                                            <Edit2 size={14} className="text-indigo-600" />
+                                            <Edit2 size={14} className="text-primary-600" />
                                         </button>
                                         {!template.isSystem && (
                                             <button

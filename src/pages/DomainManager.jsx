@@ -63,12 +63,12 @@ const DomainManager = () => {
                         value={newEmail}
                         onChange={(e) => setNewEmail(e.target.value)}
                         placeholder="sender@example.com"
-                        className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all"
+                        className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none transition-all"
                     />
                     <button
                         type="submit"
                         disabled={loading}
-                        className="bg-indigo-600 text-white px-6 py-2 rounded-lg font-medium hover:bg-indigo-700 transition-colors flex items-center gap-2 disabled:opacity-50"
+                        className="bg-primary-600 text-white px-6 py-2 rounded-lg font-medium hover:bg-primary-700 transition-colors flex items-center gap-2 disabled:opacity-50"
                     >
                         <Plus size={20} />
                         {loading ? 'Sending...' : 'Verify Email'}

@@ -18,10 +18,10 @@ const Sidebar = () => {
     const isActive = (path) => location.pathname === path;
 
     return (
-        <aside className="w-64 bg-white border-r border-gray-200 flex flex-col">
+        <aside className="w-64 bg-gray-50 border-r border-gray-200 flex flex-col">
             {/* Logo */}
             <div className="p-6 border-b border-gray-200">
-                <h1 className="text-xl font-bold text-indigo-600 flex items-center gap-2">
+                <h1 className="text-xl font-bold text-primary-600 flex items-center gap-2">
                     <Mail className="h-6 w-6" />
                     SES Sender
                 </h1>
@@ -29,9 +29,9 @@ const Sidebar = () => {
 
             {/* User Info */}
             <div className="p-4 border-b border-gray-200">
-                <div className="flex items-center gap-3 p-3 bg-gradient-to-r from-indigo-50 to-purple-50 rounded-lg">
+                <div className="flex items-center gap-3 p-3 bg-white rounded-lg border border-gray-200">
                     <div className="flex-shrink-0">
-                        <div className="w-10 h-10 bg-gradient-to-br from-indigo-600 to-purple-600 rounded-full flex items-center justify-center">
+                        <div className="w-10 h-10 bg-primary-500 rounded-full flex items-center justify-center">
                             <User className="text-white" size={20} />
                         </div>
                     </div>
@@ -39,7 +39,7 @@ const Sidebar = () => {
                         <p className="text-sm font-semibold text-gray-900 truncate">
                             {user.name}
                         </p>
-                        <p className="text-xs text-gray-600">
+                        <p className="text-xs text-gray-500">
                             {user.role}
                         </p>
                     </div>
@@ -47,7 +47,7 @@ const Sidebar = () => {
             </div>
 
             {/* Navigation */}
-            <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
+            <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
                 {navigation.map((item) => {
                     const active = isActive(item.to);
                     const Icon = item.icon;
@@ -56,9 +56,9 @@ const Sidebar = () => {
                         <Link
                             key={item.to}
                             to={item.to}
-                            className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${active
-                                ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200'
-                                : 'text-gray-700 hover:bg-indigo-50 hover:text-indigo-600'
+                            className={`flex items-center gap-3 px-4 py-2.5 rounded-lg transition-all ${active
+                                ? 'bg-primary-500 text-white'
+                                : 'text-gray-700 hover:bg-white hover:text-primary-600'
                                 }`}
                         >
                             <Icon size={20} />
@@ -72,7 +72,7 @@ const Sidebar = () => {
             <div className="p-4 border-t border-gray-200">
                 <button
                     onClick={logout}
-                    className="w-full flex items-center gap-3 px-4 py-3 text-red-600 hover:bg-red-50 rounded-lg transition-colors font-medium"
+                    className="w-full flex items-center gap-3 px-4 py-2.5 text-gray-700 hover:bg-white hover:text-red-600 rounded-lg transition-colors font-medium"
                 >
                     <LogOut size={20} />
                     <span>Logout</span>

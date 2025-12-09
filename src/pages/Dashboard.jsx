@@ -85,14 +85,14 @@ const Dashboard = () => {
 
     // Real email status distribution from DynamoDB
     const statusData = [
-        { name: 'Sent', value: totalEmailsSent, color: '#10b981' },
-        { name: 'Opened', value: totalOpened, color: '#3b82f6' },
-        { name: 'Clicked', value: totalClicked, color: '#8b5cf6' },
-        { name: 'Bounced', value: totalBounced, color: '#ef4444' },
+        { name: 'Sent', value: totalEmailsSent, color: '#ec4899' },
+        { name: 'Opened', value: totalOpened, color: '#f472b6' },
+        { name: 'Clicked', value: totalClicked, color: '#db2777' },
+        { name: 'Bounced', value: totalBounced, color: '#be185d' },
     ];
 
     const StatCard = ({ label, value, icon: Icon, color, trend, to }) => (
-        <Link to={to} className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
+        <Link to={to} className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition-shadow">
             <div className="flex justify-between items-start">
                 <div>
                     <p className="text-sm font-medium text-gray-500">{label}</p>
@@ -114,7 +114,7 @@ const Dashboard = () => {
                     <Icon size={24} className={color.replace('bg-', 'text-')} />
                 </div>
             </div>
-            <div className="mt-4 flex items-center text-sm text-indigo-600 font-medium">
+            <div className="mt-4 flex items-center text-sm text-primary-600 font-medium">
                 View Details <ArrowRight size={16} className="ml-1" />
             </div>
         </Link>
@@ -138,7 +138,7 @@ const Dashboard = () => {
                     </button>
                     <Link
                         to="/compose"
-                        className="bg-indigo-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-indigo-700 transition-colors flex items-center gap-2 shadow-sm"
+                        className="bg-primary-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-primary-700 transition-colors flex items-center gap-2"
                     >
                         <Plus size={20} />
                         New Campaign
@@ -152,7 +152,7 @@ const Dashboard = () => {
                     label="Total Campaigns"
                     value={totalCampaigns.toLocaleString()}
                     icon={Send}
-                    color="bg-blue-500"
+                    color="bg-primary-500"
                     trend="+12% this month"
                     to="/stats"
                 />
@@ -160,7 +160,7 @@ const Dashboard = () => {
                     label="Emails Sent"
                     value={totalEmailsSent.toLocaleString()}
                     icon={Mail}
-                    color="bg-purple-500"
+                    color="bg-pink-400"
                     trend="+8% this week"
                     to="/stats"
                 />
@@ -168,11 +168,11 @@ const Dashboard = () => {
                     label="Avg Open Rate"
                     value={`${avgOpenRate}%`}
                     icon={MailOpen}
-                    color="bg-emerald-500"
+                    color="bg-rose-400"
                     trend="+2.3% vs last month"
                     to="/stats"
                 />
-                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
                     <div className="flex justify-between items-start">
                         <div>
                             <p className="text-sm font-medium text-gray-500">Email Balance</p>
@@ -195,7 +195,7 @@ const Dashboard = () => {
             {/* Charts Row */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
                 {/* Campaign Performance */}
-                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
                     <h2 className="text-lg font-bold text-gray-900 mb-4">Campaign Performance</h2>
                     {campaignPerformance.length > 0 ? (
                         <ResponsiveContainer width="100%" height={250}>
@@ -204,9 +204,9 @@ const Dashboard = () => {
                                 <XAxis dataKey="name" tick={{ fontSize: 12 }} />
                                 <YAxis tick={{ fontSize: 12 }} />
                                 <Tooltip />
-                                <Bar dataKey="sent" fill="#8b5cf6" name="Sent" />
-                                <Bar dataKey="opened" fill="#3b82f6" name="Opened" />
-                                <Bar dataKey="clicked" fill="#10b981" name="Clicked" />
+                                <Bar dataKey="sent" fill="#ec4899" name="Sent" />
+                                <Bar dataKey="opened" fill="#f472b6" name="Opened" />
+                                <Bar dataKey="clicked" fill="#db2777" name="Clicked" />
                             </BarChart>
                         </ResponsiveContainer>
                     ) : (
@@ -214,7 +214,7 @@ const Dashboard = () => {
                             <div className="text-center">
                                 <BarChartIcon size={48} className="mx-auto mb-2 opacity-20" />
                                 <p>No campaigns yet</p>
-                                <Link to="/compose" className="text-indigo-600 text-sm mt-2 inline-block">
+                                <Link to="/compose" className="text-primary-600 text-sm mt-2 inline-block">
                                     Create your first campaign
                                 </Link>
                             </div>
@@ -223,7 +223,7 @@ const Dashboard = () => {
                 </div>
 
                 {/* Weekly Activity */}
-                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
                     <h2 className="text-lg font-bold text-gray-900 mb-4">Weekly Activity</h2>
                     <ResponsiveContainer width="100%" height={250}>
                         <LineChart data={weeklyActivity}>
@@ -231,7 +231,7 @@ const Dashboard = () => {
                             <XAxis dataKey="day" tick={{ fontSize: 12 }} />
                             <YAxis tick={{ fontSize: 12 }} />
                             <Tooltip />
-                            <Line type="monotone" dataKey="emails" stroke="#6366f1" strokeWidth={2} dot={{ r: 4 }} />
+                            <Line type="monotone" dataKey="emails" stroke="#ec4899" strokeWidth={2} dot={{ r: 4 }} />
                         </LineChart>
                     </ResponsiveContainer>
                 </div>
@@ -240,7 +240,7 @@ const Dashboard = () => {
             {/* Email Status Distribution & Recent Campaigns */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 {/* Email Status */}
-                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
                     <h2 className="text-lg font-bold text-gray-900 mb-4">Email Status</h2>
                     {totalEmailsSent > 0 ? (
                         <ResponsiveContainer width="100%" height={200}>
@@ -280,7 +280,7 @@ const Dashboard = () => {
                 </div>
 
                 {/* Recent Campaigns */}
-                <div className="lg:col-span-2 bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                <div className="lg:col-span-2 bg-white p-6 rounded-xl shadow-sm border border-gray-200">
                     <h2 className="text-lg font-bold text-gray-900 mb-4">Recent Campaigns</h2>
                     {campaigns.length > 0 ? (
                         <div className="space-y-3">
@@ -296,7 +296,7 @@ const Dashboard = () => {
                                         </p>
                                         <Link
                                             to="/stats"
-                                            className="text-xs text-indigo-600 hover:text-indigo-700"
+                                            className="text-xs text-primary-600 hover:text-primary-700"
                                         >
                                             View Stats
                                         </Link>
@@ -309,7 +309,7 @@ const Dashboard = () => {
                             <div className="text-center">
                                 <Mail size={48} className="mx-auto mb-2 opacity-20" />
                                 <p>No campaigns yet</p>
-                                <Link to="/compose" className="text-indigo-600 text-sm mt-2 inline-block">
+                                <Link to="/compose" className="text-primary-600 text-sm mt-2 inline-block">
                                     Get started →
                                 </Link>
                             </div>

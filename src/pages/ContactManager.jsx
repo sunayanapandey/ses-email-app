@@ -182,7 +182,7 @@ const ContactManager = () => {
                 </div>
                 <div className="flex gap-4">
                     <div className="bg-white px-4 py-2 rounded-lg border border-gray-200 flex items-center gap-2 shadow-sm">
-                        <Users className="text-indigo-600" size={20} />
+                        <Users className="text-primary-600" size={20} />
                         <span className="font-semibold text-gray-900">{contacts.length}</span>
                         <span className="text-gray-500">Total Contacts</span>
                     </div>
@@ -190,14 +190,14 @@ const ContactManager = () => {
                         <>
                             <button
                                 onClick={saveCurrentList}
-                                className="px-4 py-2 text-indigo-600 hover:bg-indigo-50 rounded-lg border border-indigo-200 transition-colors flex items-center gap-2"
+                                className="px-4 py-2 text-primary-600 hover:bg-primary-50 rounded-lg border border-primary-200 transition-colors flex items-center gap-2"
                             >
                                 <Upload size={18} className="rotate-180" />
                                 Save as List
                             </button>
                             <button
                                 onClick={exportCSV}
-                                className="px-4 py-2 text-indigo-600 hover:bg-indigo-50 rounded-lg border border-indigo-200 transition-colors flex items-center gap-2"
+                                className="px-4 py-2 text-primary-600 hover:bg-primary-50 rounded-lg border border-primary-200 transition-colors flex items-center gap-2"
                             >
                                 <Upload size={18} className="rotate-180" />
                                 Export CSV
@@ -219,7 +219,7 @@ const ContactManager = () => {
                 <div className="lg:col-span-1 flex flex-col gap-4">
                     <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex-1 overflow-hidden flex flex-col">
                         <h3 className="font-bold text-gray-900 mb-4 flex items-center gap-2">
-                            <FileSpreadsheet size={20} className="text-indigo-600" />
+                            <FileSpreadsheet size={20} className="text-primary-600" />
                             Saved Lists
                         </h3>
                         <div className="overflow-y-auto flex-1 space-y-2">
@@ -231,8 +231,8 @@ const ContactManager = () => {
                                         key={list.id}
                                         onClick={() => loadList(list)}
                                         className={`p-3 rounded-lg border cursor-pointer transition-all group flex justify-between items-center ${selectedListId === list.id
-                                            ? 'border-indigo-500 bg-indigo-50'
-                                            : 'border-gray-200 hover:border-indigo-300 hover:bg-gray-50'
+                                            ? 'border-primary-500 bg-primary-50'
+                                            : 'border-gray-200 hover:border-primary-300 hover:bg-gray-50'
                                             }`}
                                     >
                                         <div className="overflow-hidden">
@@ -254,14 +254,14 @@ const ContactManager = () => {
 
                     {/* Upload Area (Small) */}
                     <div
-                        className={`border-2 border-dashed rounded-xl flex flex-col items-center justify-center p-4 text-center transition-all ${dragActive ? 'border-indigo-500 bg-indigo-50' : 'border-gray-300 hover:border-indigo-400 hover:bg-gray-50'
+                        className={`border-2 border-dashed rounded-xl flex flex-col items-center justify-center p-4 text-center transition-all ${dragActive ? 'border-primary-500 bg-primary-50' : 'border-gray-300 hover:border-primary-400 hover:bg-gray-50'
                             }`}
                         onDragEnter={handleDrag}
                         onDragLeave={handleDrag}
                         onDragOver={handleDrag}
                         onDrop={handleDrop}
                     >
-                        <Upload size={24} className="text-indigo-400 mb-2" />
+                        <Upload size={24} className="text-primary-400 mb-2" />
                         <p className="text-sm font-medium text-gray-900">Upload New CSV</p>
                         <input
                             type="file"
@@ -272,7 +272,7 @@ const ContactManager = () => {
                         />
                         <label
                             htmlFor="csv-upload"
-                            className="mt-2 text-xs text-indigo-600 hover:text-indigo-700 cursor-pointer font-medium"
+                            className="mt-2 text-xs text-primary-600 hover:text-primary-700 cursor-pointer font-medium"
                         >
                             Browse Files
                         </label>
@@ -291,7 +291,7 @@ const ContactManager = () => {
                                 placeholder="Search contacts..."
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
-                                className="w-full max-w-xs px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:border-indigo-500"
+                                className="w-full max-w-xs px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:border-primary-500"
                             />
                         )}
                     </div>
