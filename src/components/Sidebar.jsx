@@ -53,7 +53,7 @@ const Sidebar = () => {
                 <div className="flex items-center gap-2 text-surface-900">
                     <Cloud className="h-8 w-8 text-primary-500 fill-current" />
                     <div>
-                        <h1 className="text-lg font-bold leading-none">SES Sender</h1>
+                        <h1 className="text-lg font-bold leading-none">SES</h1>
                         <p className="text-xs text-surface-500">cloud</p>
                     </div>
                 </div>
