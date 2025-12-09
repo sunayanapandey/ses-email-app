@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { api } from '../services/api';
 import { Plus, CheckCircle, Clock, Trash2, Mail } from 'lucide-react';
 import Button from '../components/Button';
+import Tag from '../components/Tag';
 
 const DomainManager = () => {
     const [senders, setSenders] = useState([]);
@@ -104,14 +105,10 @@ const DomainManager = () => {
                             </div>
                             <div className="flex items-center gap-4">
                                 {sender.status === 'Pending' && (
-                                    <span className="text-sm text-yellow-600 bg-yellow-50 px-3 py-1 rounded-full border border-yellow-100">
-                                        Verification Pending
-                                    </span>
+                                    <Tag variant="pending">Pending</Tag>
                                 )}
                                 {sender.status === 'Success' && (
-                                    <span className="text-sm text-green-600 bg-green-50 px-3 py-1 rounded-full border border-green-100">
-                                        Verified ✓
-                                    </span>
+                                    <Tag variant="verified">Verified</Tag>
                                 )}
                                 <Button
                                     variant="destructive"
