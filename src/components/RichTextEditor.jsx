@@ -1,7 +1,7 @@
 import React, { useRef, useEffect, useState } from 'react';
 import {
     Bold, Italic, Underline, AlignLeft, AlignCenter, AlignRight, AlignJustify,
-    List, ListOrdered, Link2, Image, Type, Palette
+    List, ListOrdered, Link2, Image, Type, Highlighter
 } from 'lucide-react';
 
 const RichTextEditor = ({ value, onChange, placeholder = 'Start typing your email content...' }) => {
@@ -136,7 +136,7 @@ const RichTextEditor = ({ value, onChange, placeholder = 'Start typing your emai
                             title="Text Color"
                             type="button"
                         >
-                            <Palette size={18} />
+                            <Type size={18} />
                             <div
                                 className="w-4 h-4 rounded border border-gray-300"
                                 style={{ backgroundColor: textColor }}
@@ -154,10 +154,10 @@ const RichTextEditor = ({ value, onChange, placeholder = 'Start typing your emai
                         <button
                             onClick={() => bgColorInputRef.current?.click()}
                             className="p-2 hover:bg-gray-200 rounded flex items-center gap-1"
-                            title="Background Color"
+                            title="Highlight Color"
                             type="button"
                         >
-                            <Type size={18} />
+                            <Highlighter size={18} />
                             <div
                                 className="w-4 h-4 rounded border border-gray-300"
                                 style={{ backgroundColor: bgColor }}
