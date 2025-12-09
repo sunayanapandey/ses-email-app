@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import Papa from 'papaparse';
-import { Upload, Users, FileSpreadsheet, Trash2, CheckCircle } from 'lucide-react';
+import { Upload, Users, FileSpreadsheet, Trash2, CheckCircle, X } from 'lucide-react';
 import { api } from '../services/api';
 import Button from '../components/Button';
 
@@ -11,6 +11,8 @@ const ContactManager = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [savedLists, setSavedLists] = useState([]);
     const [selectedListId, setSelectedListId] = useState(null);
+    const [showSaveListModal, setShowSaveListModal] = useState(false);
+    const [newListName, setNewListName] = useState('');
 
     useEffect(() => {
         loadLists();
@@ -70,32 +72,41 @@ const ContactManager = () => {
         });
     };
 
-    const saveCurrentList = async () => {
+    const saveCurrentList = () => {
         if (contacts.length === 0) return;
-        const name = prompt('Enter a name for this contact list:');
-        if (name) {
-            try {
-                // Step 1: Create list in DynamoDB
-                const newList = await api.createList(name, `Saved from Contact Manager`);
+        setNewListName('');
+        setShowSaveListModal(true);
+    };
 
-                // Step 2: Parse contacts and add to DynamoDB
-                const contactsToSave = contacts.map(c => ({
-                    email: c.email || c.Email,
-                    name: c.name || c.Name || 'Contact'
-                }));
+    const handleSaveList = async () => {
+        if (!newListName.trim()) {
+            alert('Please enter a list name');
+            return;
+        }
 
-                await api.batchAddContacts(contactsToSave, newList.id);
+        try {
+            // Step 1: Create list in DynamoDB
+            const newList = await api.createList(newListName, `Saved from Contact Manager`);
 
-                // Step 3: Reload lists
-                const updatedLists = await api.getLists();
-                setSavedLists(updatedLists);
-                setSelectedListId(newList.id);
+            // Step 2: Parse contacts and add to DynamoDB
+            const contactsToSave = contacts.map(c => ({
+                email: c.email || c.Email,
+                name: c.name || c.Name || 'Contact'
+            }));
 
-                alert(`List "${name}" saved successfully with ${contactsToSave.length} contacts!`);
-            } catch (error) {
-                console.error('Error saving list:', error);
-                alert('Failed to save list. Please try again.');
-            }
+            await api.batchAddContacts(contactsToSave, newList.id);
+
+            // Step 3: Reload lists
+            const updatedLists = await api.getLists();
+            setSavedLists(updatedLists);
+            setSelectedListId(newList.id);
+
+            alert(`List "${newListName}" saved successfully with ${contactsToSave.length} contacts!`);
+            setShowSaveListModal(false);
+            setNewListName('');
+        } catch (error) {
+            console.error('Error saving list:', error);
+            alert('Failed to save list. Please try again.');
         }
     };
 
@@ -193,7 +204,6 @@ const ContactManager = () => {
                                 variant="secondary"
                                 onClick={saveCurrentList}
                                 icon={Upload}
-                                className="rotate-180" // Icon rotation needs to be handled differently or passed as prop
                             >
                                 Save as List
                             </Button>
@@ -343,6 +353,50 @@ const ContactManager = () => {
                     </div>
                 </div>
             </div>
+
+            {/* Save List Modal */}
+            {showSaveListModal && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setShowSaveListModal(false)}>
+                    <div className="bg-white rounded-xl shadow-lg p-6 w-full max-w-md" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex justify-between items-center mb-4">
+                            <h3 className="text-h3 text-surface-900">
+                                Save Contact List
+                            </h3>
+                            <button
+                                onClick={() => setShowSaveListModal(false)}
+                                className="text-surface-500 hover:text-surface-700"
+                                type="button"
+                            >
+                                <X size={20} />
+                            </button>
+                        </div>
+                        <input
+                            type="text"
+                            value={newListName}
+                            onChange={(e) => setNewListName(e.target.value)}
+                            placeholder="List name..."
+                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none mb-4"
+                            onKeyPress={(e) => e.key === 'Enter' && handleSaveList()}
+                            autoFocus
+                        />
+                        <div className="flex gap-3 justify-end">
+                            <Button
+                                variant="ghost"
+                                onClick={() => setShowSaveListModal(false)}
+                                type="button"
+                            >
+                                Cancel
+                            </Button>
+                            <Button
+                                onClick={handleSaveList}
+                                type="button"
+                            >
+                                Save List
+                            </Button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

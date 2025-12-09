@@ -27,6 +27,10 @@ const EmailComposer = () => {
     const [verifiedEmails, setVerifiedEmails] = useState([]);
     const [senderEmail, setSenderEmail] = useState('');
 
+    // Save List Modal State
+    const [showSaveListModal, setShowSaveListModal] = useState(false);
+    const [newListName, setNewListName] = useState('');
+
     useEffect(() => {
         // Load verified emails from domains
         loadVerifiedEmails();
@@ -276,6 +280,50 @@ const EmailComposer = () => {
         }
     };
 
+    const handleSaveList = async () => {
+        if (!newListName.trim()) {
+            alert('Please enter a list name');
+            return;
+        }
+
+        if (!csvFile) {
+            alert('No CSV file selected');
+            return;
+        }
+
+        try {
+            // Step 1: Create list in DynamoDB
+            const newList = await api.createList(newListName, `Imported from ${csvFile.name}`);
+
+            // Step 2: Parse CSV and extract contacts
+            const reader = new FileReader();
+            reader.onload = async (e) => {
+                const csvContent = e.target.result;
+                const contacts = parseCSV(csvContent);
+
+                // Step 3: Add contacts to list in DynamoDB
+                try {
+                    await api.batchAddContacts(contacts, newList.id);
+
+                    // Step 4: Reload lists
+                    const updatedLists = await api.getLists();
+                    setSavedLists(updatedLists);
+
+                    alert(`List "${newListName}" saved successfully with ${contacts.length} contacts!`);
+                    setShowSaveListModal(false);
+                    setNewListName('');
+                } catch (error) {
+                    console.error('Error adding contacts:', error);
+                    alert('List created but failed to add some contacts.');
+                }
+            };
+            reader.readAsText(csvFile);
+        } catch (error) {
+            console.error('Error saving list:', error);
+            alert('Failed to save list. Please try again.');
+        }
+    };
+
     return (
         <div className="p-8 max-w-6xl mx-auto h-full flex flex-col">
             <div className="mb-6 flex justify-between items-center">
@@ -363,6 +411,50 @@ const EmailComposer = () => {
                                 onClick={handleSaveTemplate}
                             >
                                 {editingTemplateId ? 'Update' : 'Save'}
+                            </Button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Save List Modal */}
+            {showSaveListModal && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setShowSaveListModal(false)}>
+                    <div className="bg-white rounded-xl shadow-lg p-6 w-full max-w-md" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex justify-between items-center mb-4">
+                            <h3 className="text-h3 text-surface-900">
+                                Save Contact List
+                            </h3>
+                            <button
+                                onClick={() => setShowSaveListModal(false)}
+                                className="text-surface-500 hover:text-surface-700"
+                                type="button"
+                            >
+                                <X size={20} />
+                            </button>
+                        </div>
+                        <input
+                            type="text"
+                            value={newListName}
+                            onChange={(e) => setNewListName(e.target.value)}
+                            placeholder="List name..."
+                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none mb-4"
+                            onKeyPress={(e) => e.key === 'Enter' && handleSaveList()}
+                            autoFocus
+                        />
+                        <div className="flex gap-3 justify-end">
+                            <Button
+                                variant="ghost"
+                                onClick={() => setShowSaveListModal(false)}
+                                type="button"
+                            >
+                                Cancel
+                            </Button>
+                            <Button
+                                onClick={handleSaveList}
+                                type="button"
+                            >
+                                Save List
                             </Button>
                         </div>
                     </div>
@@ -555,50 +647,19 @@ const EmailComposer = () => {
                                 />
                                 <label
                                     htmlFor="csv-file-upload"
+                                    className={`inline-flex items-center justify-center gap-2 font-normal text-[14px] leading-[18px] text-center transition-all duration-200 rounded-[4px] focus:outline-none focus:ring-2 focus:ring-offset-1 px-[16px] py-[4px] min-w-[135px] h-[32px] cursor-pointer ${csvFile
+                                            ? 'bg-surface-10 text-surface-900 border border-surface-200 hover:border-primary-300'
+                                            : 'bg-primary-500 text-white border border-primary-500 hover:bg-primary-300 hover:border-primary-300 shadow-sm'
+                                        }`}
                                 >
-                                    <Button
-                                        as="span"
-                                        variant={csvFile ? "secondary" : "primary"}
-                                    >
-                                        {csvFile ? 'Change File' : 'Upload CSV'}
-                                    </Button>
+                                    {csvFile ? 'Change File' : 'Upload CSV'}
                                 </label>
                                 {csvFile && (
                                     <Button
                                         variant="secondary"
-                                        onClick={async () => {
-                                            const name = prompt('Enter a name for this contact list:');
-                                            if (name) {
-                                                try {
-                                                    // Step 1: Create list in DynamoDB
-                                                    const newList = await api.createList(name, `Imported from ${csvFile.name}`);
-
-                                                    // Step 2: Parse CSV and extract contacts
-                                                    const reader = new FileReader();
-                                                    reader.onload = async (e) => {
-                                                        const csvContent = e.target.result;
-                                                        const contacts = parseCSV(csvContent);
-
-                                                        // Step 3: Add contacts to list in DynamoDB
-                                                        try {
-                                                            await api.batchAddContacts(contacts, newList.id);
-
-                                                            // Step 4: Reload lists
-                                                            const updatedLists = await api.getLists();
-                                                            setSavedLists(updatedLists);
-
-                                                            alert(`List "${name}" saved successfully with ${contacts.length} contacts!`);
-                                                        } catch (error) {
-                                                            console.error('Error adding contacts:', error);
-                                                            alert('List created but failed to add some contacts.');
-                                                        }
-                                                    };
-                                                    reader.readAsText(csvFile);
-                                                } catch (error) {
-                                                    console.error('Error saving list:', error);
-                                                    alert('Failed to save list. Please try again.');
-                                                }
-                                            }
+                                        onClick={() => {
+                                            setNewListName('');
+                                            setShowSaveListModal(true);
                                         }}
                                         icon={Save}
                                     >
