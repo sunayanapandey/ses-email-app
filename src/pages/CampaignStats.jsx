@@ -4,8 +4,10 @@ import { api } from '../services/api';
 import { Send, MailOpen, MousePointer, XCircle, RefreshCw, Search, Clock } from 'lucide-react';
 import Button from '../components/Button';
 import { COLOR_SCHEMES } from '../utils/chartColors';
+import { useToast } from '../components/Toast';
 
 const CampaignStats = () => {
+    const toast = useToast();
     const [stats, setStats] = useState(null);
     const [loading, setLoading] = useState(false);
     const [campaignFileName, setCampaignFileName] = useState('');
@@ -35,7 +37,7 @@ const CampaignStats = () => {
 
     const loadStats = async (fileName = campaignFileName) => {
         if (!fileName.trim()) {
-            alert('Please select or enter a campaign name');
+            toast.warning('Please select or enter a campaign name');
             return;
         }
 

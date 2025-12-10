@@ -23,9 +23,10 @@ const getAuthHeaders = () => {
     };
 };
 
-// Helper to handle API response and detect 401 errors
-const handleResponse = async (response) => {
-    console.log('📡 API Response Status:', response.status);
+// Wrapper for fetch that automatically handles 401 errors
+const authFetch = async (url, options = {}) => {
+    const response = await fetch(url, options);
+    console.log('📡 API Response Status:', response.status, 'for', url);
     if (response.status === 401) {
         console.log('🔴 401 Unauthorized detected!');
         // Token expired or unauthorized
@@ -45,7 +46,7 @@ export const api = {
 
     register: async (email, password) => {
         try {
-            const response = await fetch(`${AUTH_BASE_URL}/auth/register`, {
+            const response = await authFetch(`${AUTH_BASE_URL}/auth/register`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ email, password })
@@ -65,7 +66,7 @@ export const api = {
             formData.append('username', email);
             formData.append('password', password);
 
-            const response = await fetch(`${AUTH_BASE_URL}/auth/login`, {
+            const response = await authFetch(`${AUTH_BASE_URL}/auth/login`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/x-www-form-urlencoded',
@@ -85,10 +86,9 @@ export const api = {
     // Get user's email balance
     getBalance: async () => {
         try {
-            const response = await fetch(`${BASE_URL}/balance`, {
+            const response = await authFetch(`${BASE_URL}/balance`, {
                 headers: getAuthHeaders()
             });
-            await handleResponse(response);
             const data = await response.json();
             return data.balance || 0;
         } catch (error) {
@@ -100,7 +100,7 @@ export const api = {
     // Get presigned S3 upload URL and initialize campaign
     getUploadUrl: async (fileName, subject, body, senderEmail) => {
         try {
-            const response = await fetch(`${BASE_URL}/upload`, {
+            const response = await authFetch(`${BASE_URL}/upload`, {
                 method: 'POST',
                 headers: getAuthHeaders(),
                 body: JSON.stringify({
@@ -123,7 +123,7 @@ export const api = {
     // Upload CSV file to S3 using presigned URL
     uploadToS3: async (presignedUrl, file) => {
         try {
-            const response = await fetch(presignedUrl, {
+            const response = await authFetch(presignedUrl, {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'text/csv',
@@ -141,7 +141,7 @@ export const api = {
     getCampaign: async (campaignId) => {
         try {
             const url = `${BASE_URL}/campaigns?campaignId=${encodeURIComponent(campaignId)}`;
-            const response = await fetch(url, {
+            const response = await authFetch(url, {
                 headers: getAuthHeaders()
             });
 
@@ -173,7 +173,7 @@ export const api = {
     // Get all campaigns
     getCampaigns: async () => {
         try {
-            const response = await fetch(`${BASE_URL}/campaigns`, {
+            const response = await authFetch(`${BASE_URL}/campaigns`, {
                 headers: getAuthHeaders()
             });
 
@@ -208,7 +208,7 @@ export const api = {
     // Get all lists
     getLists: async () => {
         try {
-            const response = await fetch(`${BASE_URL}/lists`, {
+            const response = await authFetch(`${BASE_URL}/lists`, {
                 headers: getAuthHeaders()
             });
             if (!response.ok) throw new Error('Failed to fetch lists');
@@ -229,7 +229,7 @@ export const api = {
     // Create a new list
     createList: async (name, description = '') => {
         try {
-            const response = await fetch(`${BASE_URL}/lists`, {
+            const response = await authFetch(`${BASE_URL}/lists`, {
                 method: 'POST',
                 headers: getAuthHeaders(),
                 body: JSON.stringify({ name, description })
@@ -253,7 +253,7 @@ export const api = {
     // Delete a list
     deleteList: async (listId) => {
         try {
-            const response = await fetch(`${BASE_URL}/lists?listId=${encodeURIComponent(listId)}`, {
+            const response = await authFetch(`${BASE_URL}/lists?listId=${encodeURIComponent(listId)}`, {
                 method: 'DELETE',
                 headers: getAuthHeaders()
             });
@@ -271,7 +271,7 @@ export const api = {
     // Get contacts by list ID
     getContactsByList: async (listId) => {
         try {
-            const response = await fetch(`${BASE_URL}/contacts?listId=${encodeURIComponent(listId)}`, {
+            const response = await authFetch(`${BASE_URL}/contacts?listId=${encodeURIComponent(listId)}`, {
                 headers: getAuthHeaders()
             });
             if (!response.ok) throw new Error('Failed to fetch contacts');
@@ -293,7 +293,7 @@ export const api = {
     // Add a single contact
     addContact: async (email, name, listId) => {
         try {
-            const response = await fetch(`${BASE_URL}/contacts`, {
+            const response = await authFetch(`${BASE_URL}/contacts`, {
                 method: 'POST',
                 headers: getAuthHeaders(),
                 body: JSON.stringify({ Email: email, Name: name, ListId: listId })
@@ -325,7 +325,7 @@ export const api = {
     // Get all templates
     getTemplates: async () => {
         try {
-            const response = await fetch(`${BASE_URL}/templates`, {
+            const response = await authFetch(`${BASE_URL}/templates`, {
                 headers: getAuthHeaders()
             });
             if (!response.ok) throw new Error('Failed to fetch templates');
@@ -346,7 +346,7 @@ export const api = {
     // Save template (create or update)
     saveTemplate: async (template) => {
         try {
-            const response = await fetch(`${BASE_URL}/templates`, {
+            const response = await authFetch(`${BASE_URL}/templates`, {
                 method: template.id ? 'PUT' : 'POST',
                 headers: getAuthHeaders(),
                 body: JSON.stringify(template)
@@ -370,7 +370,7 @@ export const api = {
     // Delete template
     deleteTemplate: async (templateId) => {
         try {
-            const response = await fetch(`${BASE_URL}/templates?templateId=${encodeURIComponent(templateId)}`, {
+            const response = await authFetch(`${BASE_URL}/templates?templateId=${encodeURIComponent(templateId)}`, {
                 method: 'DELETE',
                 headers: getAuthHeaders()
             });
@@ -387,7 +387,7 @@ export const api = {
 
     getSenders: async () => {
         try {
-            const response = await fetch(`${BASE_URL}/senders`, {
+            const response = await authFetch(`${BASE_URL}/senders`, {
                 headers: getAuthHeaders()
             });
             if (!response.ok) throw new Error('Failed to fetch senders');
@@ -405,7 +405,7 @@ export const api = {
 
     addSender: async (email) => {
         try {
-            const response = await fetch(`${BASE_URL}/senders`, {
+            const response = await authFetch(`${BASE_URL}/senders`, {
                 method: 'POST',
                 headers: getAuthHeaders(),
                 body: JSON.stringify({ email })
@@ -421,7 +421,7 @@ export const api = {
 
     deleteSender: async (email) => {
         try {
-            const response = await fetch(`${BASE_URL}/senders?email=${encodeURIComponent(email)}`, {
+            const response = await authFetch(`${BASE_URL}/senders?email=${encodeURIComponent(email)}`, {
                 method: 'DELETE',
                 headers: getAuthHeaders()
             });
@@ -438,7 +438,7 @@ export const api = {
 
     sendCampaign: async (campaignId) => {
         try {
-            const response = await fetch(`${BASE_URL}/campaigns/send`, {
+            const response = await authFetch(`${BASE_URL}/campaigns/send`, {
                 method: 'POST',
                 headers: getAuthHeaders(),
                 body: JSON.stringify({ campaignId })

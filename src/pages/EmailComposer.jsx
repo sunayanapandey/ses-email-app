@@ -3,8 +3,10 @@ import { Save, Send, Layout, FileText, Eye, X, Upload, CheckCircle, AlertCircle,
 import { api } from '../services/api';
 import RichTextEditor from '../components/RichTextEditor';
 import Button from '../components/Button';
+import { useToast } from '../components/Toast';
 
 const EmailComposer = () => {
+    const toast = useToast();
     const [subject, setSubject] = useState('');
     const [content, setContent] = useState('');
     const [editorMode, setEditorMode] = useState('rich'); // 'rich' or 'html'
@@ -140,7 +142,7 @@ const EmailComposer = () => {
                 setShowSaveModal(false);
             } catch (error) {
                 console.error('Error saving template:', error);
-                alert('Failed to save template. Please try again.');
+                toast.error('Failed to save template. Please try again.');
             }
         }
     };
@@ -163,7 +165,7 @@ const EmailComposer = () => {
         e.stopPropagation();
         const template = templates.find(t => t.id === templateId);
         if (template && template.isSystem) {
-            alert("System templates cannot be deleted.");
+            toast.warning("System templates cannot be deleted.");
             return;
         }
         setDeleteTemplateModal({ show: true, template });
@@ -175,7 +177,7 @@ const EmailComposer = () => {
             setTemplates(templates.filter(t => t.id !== deleteTemplateModal.template.id));
         } catch (error) {
             console.error('Error deleting template:', error);
-            alert('Failed to delete template. Please try again.');
+            toast.error('Failed to delete template. Please try again.');
         } finally {
             setDeleteTemplateModal({ show: false, template: null });
         }
@@ -217,30 +219,30 @@ const EmailComposer = () => {
             setCsvFile(file);
             setUploadStatus(null);
         } else if (file) {
-            alert('Please upload a valid CSV file');
+            toast.error('Please upload a valid CSV file');
         }
     };
 
     const handleSendCampaign = async () => {
         // Validation
         if (!subject.trim()) {
-            alert('Please enter an email subject');
+            toast.warning('Please enter an email subject');
             return;
         }
         if (!content.trim()) {
-            alert('Please enter email content');
+            toast.warning('Please enter email content');
             return;
         }
         if (!csvFile) {
-            alert('Please upload a CSV file with recipients');
+            toast.warning('Please upload a CSV file with recipients');
             return;
         }
         if (!campaignName.trim()) {
-            alert('Please enter a campaign name');
+            toast.warning('Please enter a campaign name');
             return;
         }
         if (!senderEmail) {
-            alert('Please select a sender email');
+            toast.warning('Please select a sender email');
             return;
         }
 
@@ -289,12 +291,12 @@ const EmailComposer = () => {
 
     const handleSaveList = async () => {
         if (!newListName.trim()) {
-            alert('Please enter a list name');
+            toast.warning('Please enter a list name');
             return;
         }
 
         if (!csvFile) {
-            alert('No CSV file selected');
+            toast.warning('No CSV file selected');
             return;
         }
 
@@ -321,13 +323,13 @@ const EmailComposer = () => {
                     setNewListName('');
                 } catch (error) {
                     console.error('Error adding contacts:', error);
-                    alert('List created but failed to add some contacts.');
+                    toast.warning('List created but failed to add some contacts.');
                 }
             };
             reader.readAsText(csvFile);
         } catch (error) {
             console.error('Error saving list:', error);
-            alert('Failed to save list. Please try again.');
+            toast.error('Failed to save list. Please try again.');
         }
     };
 
@@ -700,7 +702,7 @@ const EmailComposer = () => {
                                                 setCsvFile(file);
                                             } catch (error) {
                                                 console.error('Error loading list contacts:', error);
-                                                alert('Failed to load contacts. Please try again.');
+                                                toast.error('Failed to load contacts. Please try again.');
                                             }
                                         }
                                     }}

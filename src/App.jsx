@@ -4,6 +4,7 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import { setSessionExpiredCallback } from './services/api';
 import { AlertCircle } from 'lucide-react';
+import { ToastProvider } from './components/Toast';
 
 // Pages
 import Dashboard from './pages/Dashboard';
@@ -104,7 +105,9 @@ function App() {
   return (
     <Router>
       <AuthProvider>
-        <AppContent />
+        <ToastProvider>
+          <AppContent />
+        </ToastProvider>
       </AuthProvider>
     </Router>
   );
