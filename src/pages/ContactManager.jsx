@@ -14,6 +14,15 @@ const ContactManager = () => {
     const [showSaveListModal, setShowSaveListModal] = useState(false);
     const [newListName, setNewListName] = useState('');
 
+    const [confirmationModal, setConfirmationModal] = useState({
+        isOpen: false,
+        title: '',
+        message: '',
+        onConfirm: null,
+        variant: 'destructive', // 'destructive' or 'default'
+        confirmText: 'Confirm'
+    });
+
     useEffect(() => {
         loadLists();
     }, []);
@@ -131,32 +140,68 @@ const ContactManager = () => {
         }
     };
 
+    const showConfirmation = (title, message, onConfirm, variant = 'destructive', confirmText = 'Confirm') => {
+        setConfirmationModal({
+            isOpen: true,
+            title,
+            message,
+            onConfirm,
+            variant,
+            confirmText
+        });
+    };
+
+    const closeConfirmation = () => {
+        setConfirmationModal(prev => ({ ...prev, isOpen: false }));
+    };
+
+    const handleConfirmAction = () => {
+        if (confirmationModal.onConfirm) {
+            confirmationModal.onConfirm();
+        }
+        closeConfirmation();
+    };
+
     const deleteList = async (e, id) => {
         e.stopPropagation();
-        if (confirm('Are you sure you want to delete this saved list?')) {
-            try {
-                await api.deleteList(id);
-                const updatedLists = await api.getLists();
-                setSavedLists(updatedLists);
 
-                if (selectedListId === id) {
-                    setSelectedListId(null);
-                    setContacts([]);
+        showConfirmation(
+            'Delete Saved List',
+            'Are you sure you want to delete this saved list? This action cannot be undone.',
+            async () => {
+                try {
+                    await api.deleteList(id);
+                    const updatedLists = await api.getLists();
+                    setSavedLists(updatedLists);
+
+                    if (selectedListId === id) {
+                        setSelectedListId(null);
+                        setContacts([]);
+                    }
+
+                    // Optional: Show success toast instead of alert if Toast system is fully integrated
+                    // For now, removing alert or replacing with simple clear
+                } catch (error) {
+                    console.error('Error deleting list:', error);
+                    alert('Failed to delete list. Please try again.');
                 }
-
-                alert('List deleted successfully!');
-            } catch (error) {
-                console.error('Error deleting list:', error);
-                alert('Failed to delete list. Please try again.');
-            }
-        }
+            },
+            'destructive',
+            'Delete List'
+        );
     };
 
     const clearContacts = () => {
-        if (confirm('Are you sure you want to clear the current view?')) {
-            setContacts([]);
-            setSelectedListId(null);
-        }
+        showConfirmation(
+            'Clear Current View',
+            'Are you sure you want to clear the current view? This will remove all contacts from the table but will not delete them from your saved lists.',
+            () => {
+                setContacts([]);
+                setSelectedListId(null);
+            },
+            'destructive',
+            'Clear View'
+        );
     };
 
     const deleteContact = (index) => {
@@ -392,6 +437,44 @@ const ContactManager = () => {
                                 type="button"
                             >
                                 Save List
+                            </Button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Confirmation Modal */}
+            {confirmationModal.isOpen && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={closeConfirmation}>
+                    <div className="bg-white rounded-xl shadow-lg p-6 w-full max-w-md animate-scale-in" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex items-start gap-4 mb-4">
+                            <div className={`p-3 rounded-full flex-shrink-0 ${confirmationModal.variant === 'destructive' ? 'bg-red-100 text-red-600' : 'bg-primary-100 text-primary-600'}`}>
+                                {confirmationModal.variant === 'destructive' ? <Trash2 size={24} /> : <AlertCircle size={24} />}
+                            </div>
+                            <div>
+                                <h3 className="text-h3 text-surface-900 font-semibold mb-2">
+                                    {confirmationModal.title}
+                                </h3>
+                                <p className="text-body text-surface-600">
+                                    {confirmationModal.message}
+                                </p>
+                            </div>
+                        </div>
+
+                        <div className="flex gap-3 justify-end mt-6">
+                            <Button
+                                variant="ghost"
+                                onClick={closeConfirmation}
+                                type="button"
+                            >
+                                Cancel
+                            </Button>
+                            <Button
+                                variant={confirmationModal.variant === 'destructive' ? 'destructive' : 'primary'}
+                                onClick={handleConfirmAction}
+                                type="button"
+                            >
+                                {confirmationModal.confirmText}
                             </Button>
                         </div>
                     </div>

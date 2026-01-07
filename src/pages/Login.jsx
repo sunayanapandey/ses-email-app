@@ -50,7 +50,7 @@ const Login = () => {
             <div className="max-w-md w-full">
                 {/* Logo/Brand */}
                 <div className="text-center mb-8">
-                    <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-primary-600 to-purple-600 rounded-2xl mb-4">
+                    <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-primary-500 to-purple-600 rounded-2xl mb-4">
                         <Mail className="text-white" size={32} />
                     </div>
                     <h1 className="text-h1 text-surface-900">Welcome Back</h1>
@@ -125,7 +125,7 @@ const Login = () => {
                     <div className="mt-6 text-center">
                         <p className="text-body text-surface-600">
                             Don't have an account?{' '}
-                            <Link to="/register" className="text-primary-600 hover:text-primary-700 font-semibold">
+                            <Link to="/register" className="text-primary-700 hover:text-primary-900 font-semibold">
                                 Sign up
                             </Link>
                         </p>

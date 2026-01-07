@@ -73,7 +73,7 @@ const Register = () => {
             <div className="max-w-md w-full">
                 {/* Logo/Brand */}
                 <div className="text-center mb-8">
-                    <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-purple-600 to-primary-600 rounded-2xl mb-4">
+                    <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-purple-600 to-primary-500 rounded-2xl mb-4">
                         <Mail className="text-white" size={32} />
                     </div>
                     <h1 className="text-h1 text-surface-900">Create Account</h1>
@@ -105,7 +105,7 @@ const Register = () => {
                                     name="email"
                                     value={formData.email}
                                     onChange={handleChange}
-                                    className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none transition-all"
+                                    className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none transition-all"
                                     placeholder="you@example.com"
                                     autoComplete="email"
                                 />
@@ -126,7 +126,7 @@ const Register = () => {
                                     name="password"
                                     value={formData.password}
                                     onChange={handleChange}
-                                    className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none transition-all"
+                                    className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none transition-all"
                                     placeholder="••••••••"
                                     autoComplete="new-password"
                                 />
@@ -147,7 +147,7 @@ const Register = () => {
                                     name="confirmPassword"
                                     value={formData.confirmPassword}
                                     onChange={handleChange}
-                                    className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none transition-all"
+                                    className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none transition-all"
                                     placeholder="••••••••"
                                     autoComplete="new-password"
                                 />
@@ -171,7 +171,7 @@ const Register = () => {
                     <div className="mt-6 text-center">
                         <p className="text-body text-surface-600">
                             Already have an account?{' '}
-                            <Link to="/login" className="text-purple-600 hover:text-purple-700 font-semibold">
+                            <Link to="/login" className="text-primary-700 hover:text-primary-900 font-semibold">
                                 Sign in
                             </Link>
                         </p>
